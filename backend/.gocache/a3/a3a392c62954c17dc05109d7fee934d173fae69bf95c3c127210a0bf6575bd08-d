@@ -1,5 +1,0 @@
-./dashboard.go
-./errors.go
-./feed_reading.go
-./manual_command.go
-./owner.go

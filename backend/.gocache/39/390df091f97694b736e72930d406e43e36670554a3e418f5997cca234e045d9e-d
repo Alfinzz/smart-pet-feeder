@@ -1,9 +1,0 @@
-./auth_handler.go
-./control_handler.go
-./dashboard_handler.go
-./feed_handler.go
-./health_handler.go
-./middleware.go
-./profile_handler.go
-./responses.go
-./router.go

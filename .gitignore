@@ -3,6 +3,11 @@
 
 backend/.env
 backend/tmp/
+backend/.gocache/
+.idea/
+.vscode/
+*.swp
+.DS_Store
 
 mobile/.dart_tool/
 mobile/.idea/
