@@ -1,0 +1,4 @@
+./auth.go
+./control.go
+./dashboard.go
+./feed.go

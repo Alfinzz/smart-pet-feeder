@@ -1,0 +1,7 @@
+./dashboard.go
+./errors.go
+./feed_reading.go
+./health.go
+./manual_command.go
+./owner.go
+./profile.go

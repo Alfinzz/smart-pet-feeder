@@ -1,0 +1,11 @@
+.env
+*.log
+
+backend/.env
+backend/tmp/
+
+mobile/.dart_tool/
+mobile/.idea/
+mobile/build/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
