@@ -8,6 +8,7 @@ import 'services/auth_service.dart';
 import 'services/control_service.dart';
 import 'services/dashboard_service.dart';
 import 'services/feed_service.dart';
+import 'services/settings_service.dart';
 import 'services/token_storage.dart';
 
 void main() {
@@ -23,6 +24,7 @@ void main() {
       feedService: FeedService(apiClient),
       controlService: ControlService(apiClient),
       dashboardService: DashboardService(apiClient),
+      settingsService: SettingsService(apiClient),
     ),
   );
 }
@@ -35,6 +37,7 @@ class SmartPetApp extends StatelessWidget {
     required this.feedService,
     required this.controlService,
     required this.dashboardService,
+    required this.settingsService,
   });
 
   final TokenStorage tokenStorage;
@@ -42,6 +45,7 @@ class SmartPetApp extends StatelessWidget {
   final FeedService feedService;
   final ControlService controlService;
   final DashboardService dashboardService;
+  final SettingsService settingsService;
 
   @override
   Widget build(BuildContext context) {
@@ -63,6 +67,7 @@ class SmartPetApp extends StatelessWidget {
           feedService: feedService,
           controlService: controlService,
           dashboardService: dashboardService,
+          settingsService: settingsService,
           tokenStorage: tokenStorage,
         ),
       },
@@ -72,6 +77,7 @@ class SmartPetApp extends StatelessWidget {
         feedService: feedService,
         controlService: controlService,
         dashboardService: dashboardService,
+        settingsService: settingsService,
       ),
     );
   }
@@ -85,6 +91,7 @@ class AuthGate extends StatelessWidget {
     required this.feedService,
     required this.controlService,
     required this.dashboardService,
+    required this.settingsService,
   });
 
   final TokenStorage tokenStorage;
@@ -92,6 +99,7 @@ class AuthGate extends StatelessWidget {
   final FeedService feedService;
   final ControlService controlService;
   final DashboardService dashboardService;
+  final SettingsService settingsService;
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +120,7 @@ class AuthGate extends StatelessWidget {
           feedService: feedService,
           controlService: controlService,
           dashboardService: dashboardService,
+          settingsService: settingsService,
           tokenStorage: tokenStorage,
         );
       },

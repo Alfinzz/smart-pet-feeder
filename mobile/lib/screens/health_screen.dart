@@ -4,12 +4,19 @@ import 'package:flutter/material.dart';
 
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
+import '../services/settings_service.dart';
 import '../widgets/app_header.dart';
+import '../widgets/log_vitals_bottom_sheet.dart';
 
 class HealthScreen extends StatefulWidget {
-  const HealthScreen({super.key, required this.dashboardService});
+  const HealthScreen({
+    super.key,
+    required this.dashboardService,
+    required this.settingsService,
+  });
 
   final DashboardService dashboardService;
+  final SettingsService settingsService;
 
   @override
   State<HealthScreen> createState() => _HealthScreenState();
@@ -37,6 +44,21 @@ class _HealthScreenState extends State<HealthScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showLogVitalsBottomSheet(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => LogVitalsBottomSheet(
+        settingsService: widget.settingsService,
+      ),
+    );
+
+    if (mounted) {
+      await _loadHealth();
     }
   }
 
@@ -169,13 +191,32 @@ class _HealthScreenState extends State<HealthScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Vital Signs',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1E293B),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Vital Signs',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => _showLogVitalsBottomSheet(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF5B7FFF),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text(
+                  'Log',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(

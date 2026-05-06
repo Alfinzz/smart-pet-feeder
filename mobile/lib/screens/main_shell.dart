@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/control_service.dart';
 import '../services/dashboard_service.dart';
 import '../services/feed_service.dart';
+import '../services/settings_service.dart';
 import '../services/token_storage.dart';
 import 'dashboard_screen.dart';
 import 'health_screen.dart';
@@ -15,12 +16,14 @@ class MainShell extends StatefulWidget {
     required this.feedService,
     required this.controlService,
     required this.dashboardService,
+    required this.settingsService,
     required this.tokenStorage,
   });
 
   final FeedService feedService;
   final ControlService controlService;
   final DashboardService dashboardService;
+  final SettingsService settingsService;
   final TokenStorage tokenStorage;
 
   @override
@@ -46,10 +49,14 @@ class _MainShellState extends State<MainShell> {
         feedService: widget.feedService,
         dashboardService: widget.dashboardService,
       ),
-      HealthScreen(dashboardService: widget.dashboardService),
+      HealthScreen(
+        dashboardService: widget.dashboardService,
+        settingsService: widget.settingsService,
+      ),
       ProfileScreen(
         tokenStorage: widget.tokenStorage,
         dashboardService: widget.dashboardService,
+        settingsService: widget.settingsService,
       ),
     ];
   }

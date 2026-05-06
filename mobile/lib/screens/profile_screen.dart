@@ -2,18 +2,25 @@ import 'package:flutter/material.dart';
 
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
+import '../services/settings_service.dart';
 import '../services/token_storage.dart';
 import '../widgets/app_header.dart';
+import '../widgets/log_vitals_bottom_sheet.dart';
+import 'device_settings_screen.dart';
+import 'notification_preferences_screen.dart';
+import 'pet_details_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.tokenStorage,
     required this.dashboardService,
+    required this.settingsService,
   });
 
   final TokenStorage tokenStorage;
   final DashboardService dashboardService;
+  final SettingsService settingsService;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -140,7 +147,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Pet Details',
               subtitle:
                   '${pet?.species ?? 'Pet'}, ${(pet?.weightKg ?? 0).toStringAsFixed(1)} kg',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PetDetailsScreen(
+                      settingsService: widget.settingsService,
+                    ),
+                  ),
+                );
+              },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
             _MenuItem(
@@ -150,7 +166,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Device Settings',
               subtitle:
                   '${device?.name ?? 'Smart Feeder'}, ${(device?.foodStockPercent ?? 0).round()}% stock',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DeviceSettingsScreen(
+                      settingsService: widget.settingsService,
+                    ),
+                  ),
+                );
+              },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
             _MenuItem(
@@ -159,7 +184,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
               iconBgColor: const Color(0xFFFFFBEB),
               title: 'Notification Preferences',
               subtitle: 'Alerts, Reminders',
-              onTap: () {},
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => NotificationPreferencesScreen(
+                      settingsService: widget.settingsService,
+                    ),
+                  ),
+                );
+              },
+            ),
+            Divider(height: 1, color: Colors.grey.shade100, indent: 70),
+            _MenuItem(
+              icon: Icons.monitor_heart_outlined,
+              iconColor: const Color(0xFF8B5CF6),
+              iconBgColor: const Color(0xFFF5F3FF),
+              title: 'Log Health Vitals',
+              subtitle: 'Weight, activity, sleep',
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (context) => LogVitalsBottomSheet(
+                    settingsService: widget.settingsService,
+                  ),
+                );
+              },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
             _MenuItem(
