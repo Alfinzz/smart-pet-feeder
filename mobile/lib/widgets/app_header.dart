@@ -19,14 +19,11 @@ class AppHeader extends StatelessWidget {
               constraints: const BoxConstraints(),
             ),
           // Paw logo
-          Container(
+          Image.asset(
+            'assets/images/logo.png',
             width: 36,
             height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.pets, size: 20, color: Color(0xFF1565C0)),
+            fit: BoxFit.contain,
           ),
           const SizedBox(width: 10),
           Text(
