@@ -20,22 +20,7 @@
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
 #include <HX711.h>
-
-// ===================== KONFIGURASI WiFi =====================
-const char* WIFI_SSID     = "NAMA_WIFI_KAMU";       // ← Ganti ini
-const char* WIFI_PASSWORD = "PASSWORD_WIFI_KAMU";   // ← Ganti ini
-
-// ===================== KONFIGURASI BACKEND =====================
-// Ganti dengan IP/hostname server backend kamu
-// Contoh lokal:  "http://192.168.1.100:8080"
-// Contoh deploy: "https://api.smartpetfeeder.com"
-const char* BACKEND_URL   = "https://smart-pet-feeder.alfian-gading.my.id";
-
-// Device API Key — sama dengan DEVICE_API_KEY di .env backend
-const char* DEVICE_API_KEY = "dev-device-key";            // ← Sesuaikan jika diubah
-
-// Device ID — harus sama dengan device_id yang terdaftar di database
-const char* DEVICE_ID      = "ESP32-001";                 // ← Ganti sesuai device_id di DB
+#include "secrets.h"
 
 // ===================== PIN DEFINITION =====================
 #define SERVO_PIN        18
@@ -245,6 +230,20 @@ void isiAir() {
   Serial.println(F("[DONE] Pengisian air selesai.\n"));
 }
 
+void cetakErrorHTTP(const __FlashStringHelper* prefix, int statusCode, HTTPClient& http) {
+  Serial.print(prefix);
+  Serial.print(F(", kode: "));
+  Serial.println(statusCode);
+
+  String response = http.getString();
+  response.trim();
+  if (response.length() > 0) {
+    if (response.length() > 180) response = response.substring(0, 180);
+    Serial.print(F("[HTTP] Response: "));
+    Serial.println(response);
+  }
+}
+
 // ===================== KIRIM DATA SENSOR KE BACKEND =====================
 /*
  * POST /api/v1/sensors/feed-weight
@@ -289,8 +288,7 @@ void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
   if (statusCode == 201) {
     Serial.println(F("[HTTP] Data sensor terkirim ke backend ✓"));
   } else {
-    Serial.print(F("[HTTP] Gagal kirim sensor, kode: "));
-    Serial.println(statusCode);
+    cetakErrorHTTP(F("[HTTP] Gagal kirim sensor"), statusCode, http);
   }
   http.end();
 }
@@ -299,7 +297,7 @@ void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
 /*
  * GET /api/v1/devices/:deviceID/commands/next
  * Header: X-Device-Key: <key>
- * Response: { "data": { "id": 1, "action": "feed", "status": "pending" } }
+ * Response: { "data": { "id": 1, "action": "feed", "status": "sent" } }
  *           { "data": null }  ← tidak ada perintah baru
  */
 void pollingPerintah() {
@@ -314,8 +312,7 @@ void pollingPerintah() {
 
   int statusCode = http.GET();
   if (statusCode != 200) {
-    Serial.print(F("[CMD] Polling gagal, kode: "));
-    Serial.println(statusCode);
+    cetakErrorHTTP(F("[CMD] Polling gagal"), statusCode, http);
     http.end();
     return;
   }
@@ -337,8 +334,13 @@ void pollingPerintah() {
     return;
   }
 
-  long   commandID = data["id"].as<long>();
-  String action    = data["action"].as<String>();
+  long   commandID = data["id"] | 0;
+  String action    = data["action"] | "";
+
+  if (commandID <= 0 || action.length() == 0) {
+    Serial.println(F("[CMD] Perintah dari backend tidak valid."));
+    return;
+  }
 
   Serial.print(F("[CMD] Perintah diterima: "));
   Serial.print(action);
@@ -393,8 +395,7 @@ void laporkanHasilPerintah(long commandID, bool berhasil) {
     Serial.print(F("[CMD] Status perintah dilaporkan: "));
     Serial.println(berhasil ? F("completed ✓") : F("failed ✗"));
   } else {
-    Serial.print(F("[CMD] Gagal laporkan status, kode: "));
-    Serial.println(statusCode);
+    cetakErrorHTTP(F("[CMD] Gagal laporkan status"), statusCode, http);
   }
   http.end();
 }

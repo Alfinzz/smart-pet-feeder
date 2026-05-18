@@ -1,6 +1,10 @@
 package http
 
-import "testing"
+import (
+	"crypto/tls"
+	"net/http"
+	"testing"
+)
 
 func TestBuildPublicURL(t *testing.T) {
 	tests := []struct {
@@ -23,4 +27,33 @@ func TestBuildPublicURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPublicBaseURLFromRequest(t *testing.T) {
+	t.Run("keeps configured base", func(t *testing.T) {
+		request := &http.Request{Host: "api.example.com"}
+		got := publicBaseURLFromRequest("https://configured.example.com", request)
+		if got != "https://configured.example.com" {
+			t.Fatalf("publicBaseURLFromRequest() = %q", got)
+		}
+	})
+
+	t.Run("uses forwarded proto and host", func(t *testing.T) {
+		request := &http.Request{
+			Host:   "smart-pet-feeder.alfian-gading.my.id",
+			Header: http.Header{"X-Forwarded-Proto": []string{"https"}},
+		}
+		got := publicBaseURLFromRequest("", request)
+		if got != "https://smart-pet-feeder.alfian-gading.my.id" {
+			t.Fatalf("publicBaseURLFromRequest() = %q", got)
+		}
+	})
+
+	t.Run("uses tls when no proxy header is present", func(t *testing.T) {
+		request := &http.Request{Host: "api.example.com", TLS: &tls.ConnectionState{}}
+		got := publicBaseURLFromRequest("", request)
+		if got != "https://api.example.com" {
+			t.Fatalf("publicBaseURLFromRequest() = %q", got)
+		}
+	})
 }

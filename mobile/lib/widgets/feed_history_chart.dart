@@ -60,10 +60,7 @@ class FeedHistoryChart extends StatelessWidget {
           drawVerticalLine: false,
           horizontalInterval: maxY / 4,
           getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.shade200,
-              strokeWidth: 1,
-            );
+            return FlLine(color: Colors.grey.shade200, strokeWidth: 1);
           },
         ),
         borderData: FlBorderData(show: false),
@@ -82,10 +79,7 @@ class FeedHistoryChart extends StatelessWidget {
               getTitlesWidget: (value, meta) {
                 return Text(
                   '${value.toInt()}g',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                 );
               },
             ),
@@ -106,8 +100,7 @@ class FeedHistoryChart extends StatelessWidget {
                     dayLabels[index],
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight:
-                          isToday ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                       color: isToday
                           ? const Color(0xFF1E293B)
                           : Colors.grey.shade500,

@@ -65,9 +65,12 @@ class SettingsService {
   Future<void> uploadPetPhoto(String imagePath) async {
     try {
       final formData = FormData.fromMap({
-        'photo': await MultipartFile.fromFile(imagePath),
+        'photo': await MultipartFile.fromFile(
+          imagePath,
+          filename: _fileNameFromPath(imagePath),
+        ),
       });
-      await _apiClient.dio.put(
+      await _apiClient.dio.post(
         '/profile/pet/photo',
         data: formData,
         options: Options(contentType: 'multipart/form-data'),
@@ -166,5 +169,12 @@ class SettingsService {
   Future<Map<String, dynamic>> _fetchProfile() async {
     final response = await _apiClient.dio.get<Map<String, dynamic>>('/profile');
     return response.data ?? {};
+  }
+
+  String _fileNameFromPath(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    if (parts.isEmpty) return 'pet-photo.jpg';
+    return parts.last;
   }
 }

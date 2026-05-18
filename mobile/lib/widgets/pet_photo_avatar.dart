@@ -24,75 +24,84 @@ class PetPhotoAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final trimmedPhotoUrl = photoUrl.trim();
 
-    return GestureDetector(
-      onTap: isUploading ? null : onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFFF1F5F9),
-              border: Border.all(color: Colors.white, width: borderWidth),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: trimmedPhotoUrl.isEmpty
-                ? _fallbackIcon()
-                : Image.network(
-                    trimmedPhotoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        _fallbackIcon(),
-                  ),
-          ),
-          if (isUploading)
-            Positioned.fill(
-              child: Container(
+    return Semantics(
+      button: onTap != null,
+      label: 'Update pet photo',
+      child: Material(
+        color: Colors.transparent,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: isUploading ? null : onTap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: size,
+                height: size,
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
                   shape: BoxShape.circle,
+                  color: const Color(0xFFF1F5F9),
+                  border: Border.all(color: Colors.white, width: borderWidth),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: const Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
+                clipBehavior: Clip.antiAlias,
+                child: trimmedPhotoUrl.isEmpty
+                    ? _fallbackIcon()
+                    : Image.network(
+                        trimmedPhotoUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _fallbackIcon(),
+                      ),
+              ),
+              if (isUploading)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (showCameraBadge)
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt,
+                      size: 16,
                       color: Colors.white,
                     ),
                   ),
                 ),
-              ),
-            ),
-          if (showCameraBadge)
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                ),
-                child: const Icon(
-                  Icons.camera_alt,
-                  size: 16,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

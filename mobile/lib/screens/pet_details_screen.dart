@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/dashboard_models.dart';
 import '../services/settings_service.dart';
+import '../widgets/pet_photo_avatar.dart';
 
 class PetDetailsScreen extends StatefulWidget {
   const PetDetailsScreen({
@@ -26,8 +28,11 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
   int _age = 0;
   double _weightKg = 0;
   double _targetPortion = 250.0;
+  String _photoUrl = '';
 
   bool _isLoading = false;
+  bool _isUploadingPhoto = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -40,6 +45,40 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
       _age = pet.ageYears;
       _weightKg = pet.weightKg;
       _targetPortion = pet.dailyFeedTargetGrams;
+      _photoUrl = pet.photoUrl;
+    }
+  }
+
+  Future<void> _pickAndUploadPetPhoto() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (image == null || !mounted) return;
+
+    setState(() => _isUploadingPhoto = true);
+    try {
+      await widget.settingsService.uploadPetPhoto(image.path);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pet photo updated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to upload photo: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingPhoto = false);
+      }
     }
   }
 
@@ -110,35 +149,11 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
             children: [
               // Avatar
               Center(
-                child: Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.blue[50],
-                      child: Icon(
-                        Icons.pets,
-                        size: 50,
-                        color: Colors.blue[300],
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[600],
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: PetPhotoAvatar(
+                  photoUrl: _photoUrl,
+                  isUploading: _isUploadingPhoto,
+                  showCameraBadge: true,
+                  onTap: _isUploadingPhoto ? null : _pickAndUploadPetPhoto,
                 ),
               ),
               const SizedBox(height: 32),

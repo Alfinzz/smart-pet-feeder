@@ -464,7 +464,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final now = DateTime.now();
     final isToday =
         time.year == now.year && time.month == now.month && time.day == now.day;
-    final prefix = isToday ? 'Today' : 'Yesterday';
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday =
+        time.year == yesterday.year &&
+        time.month == yesterday.month &&
+        time.day == yesterday.day;
+    final prefix = isToday
+        ? 'Today'
+        : isYesterday
+        ? 'Yesterday'
+        : '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year}';
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
     return '$prefix, $hour:$minute';

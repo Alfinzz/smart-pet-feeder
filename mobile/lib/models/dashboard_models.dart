@@ -1,4 +1,5 @@
 import 'owner.dart';
+import '../config/app_config.dart';
 
 class PetProfile {
   const PetProfile({
@@ -55,7 +56,7 @@ class PetProfile {
       healthDescription: json['health_description'] as String? ?? '',
       activityMinutes: (json['activity_minutes'] as num?)?.toInt() ?? 0,
       sleepHours: (json['sleep_hours'] as num?)?.toDouble() ?? 0,
-      photoUrl: json['photo_url'] as String? ?? '',
+      photoUrl: AppConfig.publicUrl(json['photo_url'] as String? ?? ''),
     );
   }
 }

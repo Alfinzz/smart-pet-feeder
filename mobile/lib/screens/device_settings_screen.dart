@@ -101,6 +101,15 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final device = widget.initialDevice;
+    final isRecentlySeen = device == null
+        ? false
+        : DateTime.now().difference(device.lastSeenAt).inMinutes < 10;
+    final statusText = isRecentlySeen
+        ? 'Online & Connected'
+        : 'Waiting for device';
+    final statusColor = isRecentlySeen ? Colors.green : Colors.orange;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -152,16 +161,16 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         Container(
                           width: 8,
                           height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.green,
+                          decoration: BoxDecoration(
+                            color: statusColor,
                             shape: BoxShape.circle,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        const Text(
-                          'Online & Connected',
+                        Text(
+                          statusText,
                           style: TextStyle(
-                            color: Colors.green,
+                            color: statusColor,
                             fontWeight: FontWeight.w600,
                             fontSize: 12,
                           ),
@@ -169,25 +178,33 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Kitchen Feeder Pro',
-                      style: TextStyle(
+                    Text(
+                      _deviceName,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Firmware v2.4.1 (Up to date)',
+                      'Food stock ${(device?.foodStockPercent ?? 0).round()}% - ${device?.waterStatus ?? 'Water status unknown'}',
                       style: TextStyle(color: Colors.grey[600], fontSize: 13),
                     ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildBadge(Icons.wifi, 'Strong Signal'),
+                        _buildBadge(
+                          Icons.wifi,
+                          isRecentlySeen ? 'Connected' : 'No recent signal',
+                        ),
                         const SizedBox(width: 8),
-                        _buildBadge(Icons.battery_charging_full, 'Battery 85%'),
+                        _buildBadge(
+                          Icons.water_drop,
+                          device?.waterAvailable == true
+                              ? 'Water available'
+                              : 'Check water',
+                        ),
                       ],
                     ),
                   ],

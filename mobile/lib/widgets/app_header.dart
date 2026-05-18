@@ -29,9 +29,9 @@ class AppHeader extends StatelessWidget {
           Text(
             'Smart Pet Feeder',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1565C0),
-                ),
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1565C0),
+            ),
           ),
           const Spacer(),
           // Notification bell

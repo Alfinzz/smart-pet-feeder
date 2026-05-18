@@ -102,6 +102,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	protected.POST("/profile/pet-details", h.createPetDetails)
 	protected.PUT("/profile/pet-details", h.updatePetDetails)
 	protected.DELETE("/profile/pet-details", h.deletePetDetails)
+	protected.POST("/profile/pet/photo", h.updatePetPhoto)
 	protected.PUT("/profile/pet/photo", h.updatePetPhoto)
 	protected.GET("/profile/device-settings", h.getDeviceSettings)
 	protected.PATCH("/profile/device-settings", h.updateProfileDeviceSettings)

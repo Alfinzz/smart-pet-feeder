@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -23,6 +24,10 @@ func (h *Handler) updatePetPhoto(c *gin.Context) {
 
 	fileHeader, err := c.FormFile(petPhotoFormField)
 	if err != nil {
+		if requestBodyTooLarge(err) {
+			respondError(c, http.StatusRequestEntityTooLarge, "photo file is too large")
+			return
+		}
 		respondError(c, http.StatusBadRequest, "photo file is required")
 		return
 	}
@@ -55,5 +60,14 @@ func (h *Handler) updatePetPhoto(c *gin.Context) {
 	}
 
 	removeLocalPetPhoto(h.uploadDir, oldPhotoPath, photo.PublicPath)
-	c.JSON(http.StatusOK, h.petProfileResponse(pet))
+	c.JSON(http.StatusOK, h.petProfileResponse(c, pet))
+}
+
+func requestBodyTooLarge(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "request body too large") ||
+		strings.Contains(message, "http: request body too large")
 }

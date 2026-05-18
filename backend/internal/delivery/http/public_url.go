@@ -1,6 +1,9 @@
 package http
 
-import "strings"
+import (
+	"net/http"
+	"strings"
+)
 
 func buildPublicURL(baseURL, value string) string {
 	value = strings.TrimSpace(value)
@@ -18,4 +21,37 @@ func buildPublicURL(baseURL, value string) string {
 		return value
 	}
 	return baseURL + value
+}
+
+func publicBaseURLFromRequest(configuredBaseURL string, request *http.Request) string {
+	configuredBaseURL = strings.TrimSpace(configuredBaseURL)
+	if configuredBaseURL != "" || request == nil {
+		return configuredBaseURL
+	}
+
+	host := strings.TrimSpace(request.Host)
+	if host == "" {
+		return ""
+	}
+
+	scheme := strings.TrimSpace(request.Header.Get("X-Forwarded-Proto"))
+	if scheme == "" {
+		scheme = strings.TrimSpace(request.Header.Get("X-Forwarded-Scheme"))
+	}
+	if scheme == "" {
+		if request.TLS != nil {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
+	}
+
+	if comma := strings.Index(scheme, ","); comma >= 0 {
+		scheme = strings.TrimSpace(scheme[:comma])
+	}
+	if scheme != "http" && scheme != "https" {
+		scheme = "https"
+	}
+
+	return scheme + "://" + host
 }

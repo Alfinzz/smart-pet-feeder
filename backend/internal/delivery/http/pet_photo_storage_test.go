@@ -2,6 +2,7 @@ package http
 
 import (
 	"bytes"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,6 +38,15 @@ func TestDetectImageExtension(t *testing.T) {
 				t.Fatalf("detectImageExtension() = %q, want %q", got, test.expect)
 			}
 		})
+	}
+}
+
+func TestRequestBodyTooLarge(t *testing.T) {
+	if !requestBodyTooLarge(errors.New("http: request body too large")) {
+		t.Fatal("requestBodyTooLarge() should detect MaxBytesReader errors")
+	}
+	if requestBodyTooLarge(errors.New("missing form file")) {
+		t.Fatal("requestBodyTooLarge() should ignore unrelated errors")
 	}
 }
 
