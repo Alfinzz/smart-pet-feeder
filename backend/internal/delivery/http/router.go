@@ -51,9 +51,11 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 		c.Status(http.StatusNoContent)
 	})
 
-	router.GET("/health", func(c *gin.Context) {
+	healthHandler := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	}
+	router.GET("/health", healthHandler)
+	router.HEAD("/health", healthHandler)
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", h.register)
