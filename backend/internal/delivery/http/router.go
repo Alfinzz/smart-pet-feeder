@@ -20,6 +20,9 @@ type Handler struct {
 	jwt             *security.JWTService
 	deviceAPIKey    string
 	corsAllowOrigin string
+	uploadDir       string
+	maxUploadSize   int64
+	publicBaseURL   string
 }
 
 func NewHandler(
@@ -42,6 +45,9 @@ func NewHandler(
 		jwt:             jwt,
 		deviceAPIKey:    cfg.DeviceAPIKey,
 		corsAllowOrigin: cfg.CORSAllowOrigin,
+		uploadDir:       cfg.UploadDir,
+		maxUploadSize:   cfg.MaxUploadSize,
+		publicBaseURL:   cfg.PublicBaseURL,
 	}
 }
 
@@ -56,6 +62,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	}
 	router.GET("/health", healthHandler)
 	router.HEAD("/health", healthHandler)
+	router.StaticFS("/uploads", gin.Dir(h.uploadDir, false))
 
 	v1 := router.Group("/api/v1")
 	v1.POST("/auth/register", h.register)
@@ -95,6 +102,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	protected.POST("/profile/pet-details", h.createPetDetails)
 	protected.PUT("/profile/pet-details", h.updatePetDetails)
 	protected.DELETE("/profile/pet-details", h.deletePetDetails)
+	protected.PUT("/profile/pet/photo", h.updatePetPhoto)
 	protected.GET("/profile/device-settings", h.getDeviceSettings)
 	protected.PATCH("/profile/device-settings", h.updateProfileDeviceSettings)
 	protected.GET("/profile/notification-preferences", h.getNotificationPreferences)

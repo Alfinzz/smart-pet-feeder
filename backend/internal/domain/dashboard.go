@@ -24,6 +24,7 @@ type PetProfile struct {
 	HealthDescription    string
 	ActivityMinutes      int
 	SleepHours           float64
+	PhotoPath            string
 }
 
 type PetProfileUpdate struct {

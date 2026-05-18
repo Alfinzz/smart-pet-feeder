@@ -21,22 +21,22 @@ class LogVitalsBottomSheet extends StatefulWidget {
 
 class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
   final _formKey = GlobalKey<FormState>();
-  
+
   double _weight = 0.0;
   int _activity = 0;
   double _sleep = 0.0;
-  
+
   bool _isLoading = false;
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     _formKey.currentState!.save();
     setState(() => _isLoading = true);
-    
+
     try {
       await widget.settingsService.submitVitals(_weight, _activity, _sleep);
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -64,7 +64,7 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
   Widget build(BuildContext context) {
     // To handle keyboard overlap
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    
+
     return Container(
       margin: const EdgeInsets.all(16.0),
       padding: EdgeInsets.only(
@@ -95,7 +95,7 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
               ),
             ),
             const SizedBox(height: 24),
-            
+
             // Header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -118,13 +118,19 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 24),
-            
+
             // Weight Input
-            const Text('Weight', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text(
+              'Weight',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.monitor_weight_outlined, color: Colors.blue[600]),
+                prefixIcon: Icon(
+                  Icons.monitor_weight_outlined,
+                  color: Colors.blue[600],
+                ),
                 suffixText: 'kg',
                 hintText: '0.0',
                 border: OutlineInputBorder(
@@ -132,9 +138,11 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.blue[50]?.withOpacity(0.5),
+                fillColor: Colors.blue[50]?.withValues(alpha: 0.5),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               validator: (val) {
                 if (val == null || val.isEmpty) return 'Required';
                 if (double.tryParse(val) == null) return 'Invalid number';
@@ -143,13 +151,19 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
               onSaved: (val) => _weight = double.parse(val ?? '0'),
             ),
             const SizedBox(height: 16),
-            
+
             // Activity Input
-            const Text('Activity', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text(
+              'Activity',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.directions_run, color: Colors.orange[600]),
+                prefixIcon: Icon(
+                  Icons.directions_run,
+                  color: Colors.orange[600],
+                ),
                 suffixText: 'mins',
                 hintText: '0',
                 border: OutlineInputBorder(
@@ -157,7 +171,7 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.blue[50]?.withOpacity(0.5),
+                fillColor: Colors.blue[50]?.withValues(alpha: 0.5),
               ),
               keyboardType: TextInputType.number,
               validator: (val) {
@@ -168,13 +182,19 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
               onSaved: (val) => _activity = int.parse(val ?? '0'),
             ),
             const SizedBox(height: 16),
-            
+
             // Sleep Input
-            const Text('Sleep', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+            const Text(
+              'Sleep',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
             const SizedBox(height: 8),
             TextFormField(
               decoration: InputDecoration(
-                prefixIcon: Icon(Icons.nights_stay_outlined, color: Colors.indigo[600]),
+                prefixIcon: Icon(
+                  Icons.nights_stay_outlined,
+                  color: Colors.indigo[600],
+                ),
                 suffixText: 'hrs',
                 hintText: '0.0',
                 border: OutlineInputBorder(
@@ -182,9 +202,11 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
                   borderSide: BorderSide.none,
                 ),
                 filled: true,
-                fillColor: Colors.blue[50]?.withOpacity(0.5),
+                fillColor: Colors.blue[50]?.withValues(alpha: 0.5),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               validator: (val) {
                 if (val == null || val.isEmpty) return 'Required';
                 if (double.tryParse(val) == null) return 'Invalid number';
@@ -193,7 +215,7 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
               onSaved: (val) => _sleep = double.parse(val ?? '0'),
             ),
             const SizedBox(height: 32),
-            
+
             // Submit Button
             SizedBox(
               height: 50,
@@ -207,18 +229,24 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
                   ),
                   elevation: 0,
                 ),
-                icon: _isLoading 
-                    ? const SizedBox() 
+                icon: _isLoading
+                    ? const SizedBox()
                     : const Icon(Icons.check_circle_outline, size: 20),
                 label: _isLoading
                     ? const SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text(
                         'Submit Vitals',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),

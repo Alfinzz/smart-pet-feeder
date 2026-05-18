@@ -59,7 +59,7 @@ func (h *Handler) getDashboardOverview(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"greeting_title":    overview.GreetingTitle,
 		"greeting_subtitle": overview.GreetingSubtitle,
-		"pet":               petProfileResponse(overview.Pet),
+		"pet":               h.petProfileResponse(overview.Pet),
 		"device":            deviceStatusResponse(overview.Device),
 	})
 }
@@ -97,7 +97,7 @@ func (h *Handler) updatePetProfile(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, petProfileResponse(pet))
+	c.JSON(http.StatusOK, h.petProfileResponse(pet))
 }
 
 func (h *Handler) updateDeviceSettings(c *gin.Context) {
@@ -184,7 +184,7 @@ func (h *Handler) getHealthSummary(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"pet":          petProfileResponse(summary.Pet),
+		"pet":          h.petProfileResponse(summary.Pet),
 		"score":        summary.Score,
 		"status_label": summary.StatusLabel,
 		"headline":     summary.Headline,
@@ -305,7 +305,7 @@ func (h *Handler) getProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"owner":  ownerProfileResponse(profile.Owner),
-		"pet":    petProfileResponse(profile.Pet),
+		"pet":    h.petProfileResponse(profile.Pet),
 		"device": deviceStatusResponse(profile.Device),
 	})
 }
@@ -318,7 +318,7 @@ func ownerProfileResponse(owner domain.OwnerProfile) gin.H {
 	}
 }
 
-func petProfileResponse(pet domain.PetProfile) gin.H {
+func (h *Handler) petProfileResponse(pet domain.PetProfile) gin.H {
 	return gin.H{
 		"id":                      pet.ID,
 		"owner_id":                pet.OwnerID,
@@ -335,6 +335,7 @@ func petProfileResponse(pet domain.PetProfile) gin.H {
 		"health_description":      pet.HealthDescription,
 		"activity_minutes":        pet.ActivityMinutes,
 		"sleep_hours":             pet.SleepHours,
+		"photo_url":               buildPublicURL(h.publicBaseURL, pet.PhotoPath),
 	}
 }
 

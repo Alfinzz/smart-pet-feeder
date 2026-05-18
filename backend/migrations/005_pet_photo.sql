@@ -1,0 +1,2 @@
+ALTER TABLE pets
+    ADD COLUMN IF NOT EXISTS photo_path TEXT;

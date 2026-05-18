@@ -1,5 +1,5 @@
 name: smart_pet_monitoring
-description: "Flutter client for Smart Pet Monitoring."
+description: "Flutter client for Smart Pet Feeder."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -16,6 +16,7 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   fl_chart: ^1.2.0
   google_fonts: ^6.1.0
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

@@ -1,11 +1,11 @@
 {
-    "name": "smart_pet_monitoring",
-    "short_name": "smart_pet_monitoring",
+    "name": "Smart Pet Feeder",
+    "short_name": "Smart Pet",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Smart Pet Feeder mobile client.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

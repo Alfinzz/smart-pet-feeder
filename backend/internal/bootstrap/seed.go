@@ -48,18 +48,22 @@ func EnsureDemoOwner(ctx context.Context, repo *postgres.OwnerRepository, name, 
 	return owner, nil
 }
 
-func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner) error {
+func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner, deviceID string) error {
 	if owner.ID <= 0 {
 		return nil
+	}
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		deviceID = "ESP32-001"
 	}
 
 	const deviceQuery = `
 		INSERT INTO devices (id, name, food_stock_percent, water_available, water_status, last_seen_at)
-		VALUES ('ESP32-001', 'Kitchen Smart Feeder', 75, TRUE, 'Clean & Fresh', NOW())
+		VALUES ($1, 'Kitchen Smart Feeder', 75, TRUE, 'Clean & Fresh', NOW())
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name
 	`
-	if _, err := db.Exec(ctx, deviceQuery); err != nil {
+	if _, err := db.Exec(ctx, deviceQuery, deviceID); err != nil {
 		return err
 	}
 
@@ -82,7 +86,7 @@ func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner
 		)
 		VALUES (
 			$1,
-			'ESP32-001',
+			$2,
 			'Fluffy',
 			'Dog',
 			'Golden Retriever',
@@ -101,7 +105,7 @@ func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner
 		RETURNING id
 	`
 	var petID int64
-	if err := db.QueryRow(ctx, petQuery, owner.ID).Scan(&petID); err != nil {
+	if err := db.QueryRow(ctx, petQuery, owner.ID, deviceID).Scan(&petID); err != nil {
 		return err
 	}
 

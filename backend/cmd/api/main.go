@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -40,6 +41,10 @@ func main() {
 		log.Fatalf("ping database: %v", err)
 	}
 
+	if err := os.MkdirAll(filepath.Join(cfg.UploadDir, "pets"), 0o755); err != nil {
+		log.Fatalf("create upload directory: %v", err)
+	}
+
 	ownerRepo := postgres.NewOwnerRepository(db)
 	feedRepo := postgres.NewFeedRepository(db)
 	commandRepo := postgres.NewCommandRepository(db)
@@ -54,7 +59,7 @@ func main() {
 			cancel()
 			log.Fatalf("seed demo owner: %v", err)
 		}
-		if err := bootstrap.EnsureDemoProfile(seedCtx, db, owner); err != nil {
+		if err := bootstrap.EnsureDemoProfile(seedCtx, db, owner, cfg.DeviceID); err != nil {
 			cancel()
 			log.Fatalf("seed demo profile: %v", err)
 		}
@@ -65,9 +70,9 @@ func main() {
 	authUsecase := usecase.NewAuthUsecase(ownerRepo, jwtService)
 	feedUsecase := usecase.NewFeedUsecase(feedRepo, cfg.HistoryDefaultLimit, cfg.HistoryMaxLimit)
 	controlUsecase := usecase.NewControlUsecase(commandRepo)
-	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo)
+	dashboardUsecase := usecase.NewDashboardUsecase(dashboardRepo, cfg.DeviceID)
 	healthUsecase := usecase.NewHealthUsecase(healthRepo)
-	profileUsecase := usecase.NewProfileUsecase(profileRepo)
+	profileUsecase := usecase.NewProfileUsecase(profileRepo, cfg.DeviceID)
 
 	gin.SetMode(cfg.GinMode)
 	router := gin.New()

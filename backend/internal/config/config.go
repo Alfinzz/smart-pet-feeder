@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -17,6 +18,10 @@ type Config struct {
 	JWTSecret           string
 	JWTExpiresIn        time.Duration
 	DeviceAPIKey        string
+	DeviceID            string
+	UploadDir           string
+	MaxUploadSize       int64
+	PublicBaseURL       string
 	SeedDemoOwner       bool
 	DemoOwnerName       string
 	DemoOwnerEmail      string
@@ -42,19 +47,53 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	maxUploadSize, err := int64Env("MAX_UPLOAD_SIZE", 5*1024*1024)
+	if err != nil {
+		return Config{}, err
+	}
+
+	databaseURL, err := requiredEnv("DATABASE_URL")
+	if err != nil {
+		return Config{}, err
+	}
+	jwtSecret, err := requiredEnv("JWT_SECRET")
+	if err != nil {
+		return Config{}, err
+	}
+	deviceAPIKey, err := requiredEnv("DEVICE_API_KEY")
+	if err != nil {
+		return Config{}, err
+	}
+	seedDemoOwner := boolEnv("SEED_DEMO_OWNER", true)
+	demoOwnerEmail := ""
+	demoOwnerPassword := ""
+	if seedDemoOwner {
+		demoOwnerEmail, err = requiredEnv("DEMO_OWNER_EMAIL")
+		if err != nil {
+			return Config{}, err
+		}
+		demoOwnerPassword, err = requiredEnv("DEMO_OWNER_PASSWORD")
+		if err != nil {
+			return Config{}, err
+		}
+	}
 
 	return Config{
 		AppPort:             env("APP_PORT", "8080"),
 		GinMode:             env("GIN_MODE", "debug"),
 		CORSAllowOrigin:     env("CORS_ALLOW_ORIGIN", "*"),
-		DatabaseURL:         env("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/smart_pet_monitoring?sslmode=disable"),
-		JWTSecret:           env("JWT_SECRET", "change-me-in-development"),
+		DatabaseURL:         databaseURL,
+		JWTSecret:           jwtSecret,
 		JWTExpiresIn:        time.Duration(jwtHours) * time.Hour,
-		DeviceAPIKey:        env("DEVICE_API_KEY", "dev-device-key"),
-		SeedDemoOwner:       boolEnv("SEED_DEMO_OWNER", true),
+		DeviceAPIKey:        deviceAPIKey,
+		DeviceID:            env("DEVICE_ID", "ESP32-001"),
+		UploadDir:           env("UPLOAD_DIR", "/app/uploads"),
+		MaxUploadSize:       maxUploadSize,
+		PublicBaseURL:       env("PUBLIC_BASE_URL", ""),
+		SeedDemoOwner:       seedDemoOwner,
 		DemoOwnerName:       env("DEMO_OWNER_NAME", "Demo Owner"),
-		DemoOwnerEmail:      env("DEMO_OWNER_EMAIL", "owner@example.com"),
-		DemoOwnerPassword:   env("DEMO_OWNER_PASSWORD", "password123"),
+		DemoOwnerEmail:      demoOwnerEmail,
+		DemoOwnerPassword:   demoOwnerPassword,
 		HistoryDefaultLimit: defaultLimit,
 		HistoryMaxLimit:     maxLimit,
 	}, nil
@@ -68,12 +107,28 @@ func env(key, fallback string) string {
 	return value
 }
 
+func requiredEnv(key string) (string, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return "", fmt.Errorf("%s is required", key)
+	}
+	return value, nil
+}
+
 func intEnv(key string, fallback int) (int, error) {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
 		return fallback, nil
 	}
 	return strconv.Atoi(value)
+}
+
+func int64Env(key string, fallback int64) (int64, error) {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback, nil
+	}
+	return strconv.ParseInt(value, 10, 64)
 }
 
 func boolEnv(key string, fallback bool) bool {

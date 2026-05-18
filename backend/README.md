@@ -29,6 +29,8 @@ migrations                              # PostgreSQL schema
 ```powershell
 psql -U postgres -d smart_pet_monitoring -f migrations/001_init.sql
 psql -U postgres -d smart_pet_monitoring -f migrations/002_dashboard_design.sql
+psql -U postgres -d smart_pet_monitoring -f migrations/003_health_profile.sql
+psql -U postgres -d smart_pet_monitoring -f migrations/004_normalize_device_id.sql
 ```
 
 3. Copy `.env.example` to `.env` and adjust credentials/secrets.
@@ -41,7 +43,7 @@ go run ./cmd/api
 
 The demo owner is created on startup when `SEED_DEMO_OWNER=true`:
 
-- Email: `owner@example.com`
+- Email: `owner@gmail.com`
 - Password: `password123`
 
 ## Endpoints
@@ -96,7 +98,7 @@ Register:
 ```json
 {
   "name": "Demo Owner",
-  "email": "owner@example.com",
+  "email": "owner@gmail.com",
   "password": "password123"
 }
 ```

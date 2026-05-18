@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/dashboard_models.dart';
 import '../services/dashboard_service.dart';
@@ -6,6 +7,8 @@ import '../services/settings_service.dart';
 import '../services/token_storage.dart';
 import '../widgets/app_header.dart';
 import '../widgets/log_vitals_bottom_sheet.dart';
+import '../widgets/pet_photo_avatar.dart';
+import '../widgets/profile_menu_item.dart';
 import 'device_settings_screen.dart';
 import 'notification_preferences_screen.dart';
 import 'pet_details_screen.dart';
@@ -28,7 +31,9 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
+  bool _uploadingPhoto = false;
   ProfileSummary? _profile;
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -84,23 +89,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Column(
       children: [
-        // Pet avatar
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFF1F5F9),
-            border: Border.all(color: Colors.white, width: 4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.pets, size: 44, color: Color(0xFF1565C0)),
+        PetPhotoAvatar(
+          photoUrl: pet?.photoUrl ?? '',
+          isUploading: _uploadingPhoto,
+          showCameraBadge: true,
+          onTap: _uploadingPhoto ? null : _pickAndUploadPetPhoto,
         ),
         const SizedBox(height: 16),
         Text(
@@ -118,6 +111,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _pickAndUploadPetPhoto() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
+    if (image == null) return;
+    if (!mounted) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      await widget.settingsService.uploadPetPhoto(image.path);
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Pet photo updated')));
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) {
+        setState(() => _uploadingPhoto = false);
+      }
+    }
   }
 
   Widget _buildMenuSection(BuildContext context) {
@@ -140,7 +162,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: Column(
           children: [
-            _MenuItem(
+            ProfileMenuItem(
               icon: Icons.pets,
               iconColor: const Color(0xFF1565C0),
               iconBgColor: const Color(0xFFE3F2FD),
@@ -161,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
-            _MenuItem(
+            ProfileMenuItem(
               icon: Icons.settings_outlined,
               iconColor: const Color(0xFF10B981),
               iconBgColor: const Color(0xFFF0FDF4),
@@ -182,7 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
-            _MenuItem(
+            ProfileMenuItem(
               icon: Icons.notifications_outlined,
               iconColor: const Color(0xFFF59E0B),
               iconBgColor: const Color(0xFFFFFBEB),
@@ -201,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
-            _MenuItem(
+            ProfileMenuItem(
               icon: Icons.monitor_heart_outlined,
               iconColor: const Color(0xFF8B5CF6),
               iconBgColor: const Color(0xFFF5F3FF),
@@ -219,7 +241,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
-            _MenuItem(
+            ProfileMenuItem(
               icon: Icons.logout,
               iconColor: const Color(0xFFEF4444),
               iconBgColor: const Color(0xFFFEF2F2),
@@ -238,79 +260,5 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await widget.tokenStorage.clear();
     if (!context.mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
-  }
-}
-
-class _MenuItem extends StatelessWidget {
-  const _MenuItem({
-    required this.icon,
-    required this.iconColor,
-    required this.iconBgColor,
-    required this.title,
-    this.subtitle,
-    this.titleColor,
-    this.showChevron = true,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final Color iconBgColor;
-  final String title;
-  final String? subtitle;
-  final Color? titleColor;
-  final bool showChevron;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: iconBgColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, size: 22, color: iconColor),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: titleColor ?? const Color(0xFF1E293B),
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (showChevron)
-              Icon(Icons.chevron_right, size: 22, color: Colors.grey.shade400),
-          ],
-        ),
-      ),
-    );
   }
 }

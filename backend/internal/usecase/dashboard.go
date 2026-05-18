@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultDeviceID             = "ESP32-001"
+	fallbackDeviceID            = "ESP32-001"
 	defaultDailyFeedTargetGrams = 150
 )
 
@@ -25,15 +25,20 @@ type DashboardRepository interface {
 	ListUpcomingTasks(ctx context.Context, petID int64, limit int) ([]domain.CareTask, error)
 	UpdateCareTask(ctx context.Context, ownerID, taskID int64, input domain.CareTaskInput) (domain.CareTask, error)
 	UpdateDeviceSettings(ctx context.Context, deviceID, name string, foodStockPercent *float64, waterAvailable *bool, waterStatus string) (domain.DeviceStatus, error)
+	UpdatePetPhoto(ctx context.Context, ownerID int64, photoPath string) (domain.PetProfile, string, error)
 	UpsertPetProfile(ctx context.Context, ownerID int64, input domain.PetProfileUpdate) (domain.PetProfile, error)
 }
 
 type DashboardUsecase struct {
-	repo DashboardRepository
+	repo            DashboardRepository
+	defaultDeviceID string
 }
 
-func NewDashboardUsecase(repo DashboardRepository) *DashboardUsecase {
-	return &DashboardUsecase{repo: repo}
+func NewDashboardUsecase(repo DashboardRepository, defaultDeviceID string) *DashboardUsecase {
+	return &DashboardUsecase{
+		repo:            repo,
+		defaultDeviceID: normalizeDefaultDeviceID(defaultDeviceID),
+	}
 }
 
 func (u *DashboardUsecase) GetOverview(ctx context.Context, ownerID int64) (domain.DashboardOverview, error) {
@@ -157,7 +162,7 @@ func (u *DashboardUsecase) EnsureDefaultProfile(ctx context.Context, ownerID int
 	if !errors.Is(err, domain.ErrNotFound) {
 		return err
 	}
-	_, err = u.repo.UpsertPetProfile(ctx, ownerID, defaultPetUpdate(ownerID))
+	_, err = u.repo.UpsertPetProfile(ctx, ownerID, u.defaultPetUpdate(ownerID))
 	return err
 }
 
@@ -183,7 +188,7 @@ func (u *DashboardUsecase) UpdatePetProfile(ctx context.Context, ownerID int64, 
 		input.Breed = "Unknown"
 	}
 	if input.DeviceID == "" {
-		input.DeviceID = defaultDeviceID
+		input.DeviceID = u.defaultDeviceID
 	}
 	if input.AgeYears < 0 {
 		return domain.PetProfile{}, fmt.Errorf("%w: age_years must be greater than or equal to 0", domain.ErrValidation)
@@ -207,6 +212,20 @@ func (u *DashboardUsecase) UpdatePetProfile(ctx context.Context, ownerID int64, 
 	return u.repo.UpsertPetProfile(ctx, ownerID, input)
 }
 
+func (u *DashboardUsecase) UpdatePetPhoto(ctx context.Context, ownerID int64, photoPath string) (domain.PetProfile, string, error) {
+	if ownerID <= 0 {
+		return domain.PetProfile{}, "", domain.ErrUnauthorized
+	}
+	photoPath = strings.TrimSpace(photoPath)
+	if photoPath == "" {
+		return domain.PetProfile{}, "", fmt.Errorf("%w: photo path is required", domain.ErrValidation)
+	}
+	if err := u.EnsureDefaultProfile(ctx, ownerID); err != nil {
+		return domain.PetProfile{}, "", err
+	}
+	return u.repo.UpdatePetPhoto(ctx, ownerID, photoPath)
+}
+
 func (u *DashboardUsecase) UpdateDeviceSettings(ctx context.Context, ownerID int64, name string, foodStockPercent *float64, waterAvailable *bool, waterStatus string) (domain.DeviceStatus, error) {
 	pet, _, err := u.getPetAndDevice(ctx, ownerID)
 	if err != nil {
@@ -228,7 +247,7 @@ func (u *DashboardUsecase) UpdateDeviceSettings(ctx context.Context, ownerID int
 	if err != nil {
 		return domain.DeviceStatus{}, err
 	}
-	return normalizeDeviceStatus(status), nil
+	return u.normalizeDeviceStatus(status), nil
 }
 
 func (u *DashboardUsecase) ListCareTasks(ctx context.Context, ownerID int64, limit int) ([]domain.CareTask, error) {
@@ -292,7 +311,7 @@ func (u *DashboardUsecase) getPetAndDevice(ctx context.Context, ownerID int64) (
 		pet = defaultPet(ownerID)
 	}
 	if strings.TrimSpace(pet.DeviceID) == "" {
-		pet.DeviceID = defaultDeviceID
+		pet.DeviceID = u.defaultDeviceID
 	}
 
 	device, err := u.repo.GetDeviceStatus(ctx, pet.DeviceID)
@@ -300,9 +319,9 @@ func (u *DashboardUsecase) getPetAndDevice(ctx context.Context, ownerID int64) (
 		if !errors.Is(err, domain.ErrNotFound) {
 			return domain.PetProfile{}, domain.DeviceStatus{}, err
 		}
-		device = defaultDeviceStatus(pet.DeviceID)
+		device = u.defaultDeviceStatus(pet.DeviceID)
 	}
-	device = normalizeDeviceStatus(device)
+	device = u.normalizeDeviceStatus(device)
 
 	return pet, device, nil
 }
@@ -318,13 +337,13 @@ func (u *DashboardUsecase) ensurePetForOwner(ctx context.Context, ownerID int64)
 	if !errors.Is(err, domain.ErrNotFound) {
 		return domain.PetProfile{}, err
 	}
-	return u.repo.UpsertPetProfile(ctx, ownerID, defaultPetUpdate(ownerID))
+	return u.repo.UpsertPetProfile(ctx, ownerID, u.defaultPetUpdate(ownerID))
 }
 
 func defaultPet(ownerID int64) domain.PetProfile {
 	return domain.PetProfile{
 		OwnerID:              ownerID,
-		DeviceID:             defaultDeviceID,
+		DeviceID:             fallbackDeviceID,
 		Name:                 "Fluffy",
 		Species:              "Dog",
 		Breed:                "Golden Retriever",
@@ -340,8 +359,9 @@ func defaultPet(ownerID int64) domain.PetProfile {
 	}
 }
 
-func defaultPetUpdate(ownerID int64) domain.PetProfileUpdate {
+func (u *DashboardUsecase) defaultPetUpdate(ownerID int64) domain.PetProfileUpdate {
 	pet := defaultPet(ownerID)
+	pet.DeviceID = u.defaultDeviceID
 	return domain.PetProfileUpdate{
 		Name:                 pet.Name,
 		Species:              pet.Species,
@@ -359,11 +379,11 @@ func defaultPetUpdate(ownerID int64) domain.PetProfileUpdate {
 	}
 }
 
-func defaultDeviceStatus(deviceID string) domain.DeviceStatus {
+func (u *DashboardUsecase) defaultDeviceStatus(deviceID string) domain.DeviceStatus {
 	if strings.TrimSpace(deviceID) == "" {
-		deviceID = defaultDeviceID
+		deviceID = u.defaultDeviceID
 	}
-	return normalizeDeviceStatus(domain.DeviceStatus{
+	return u.normalizeDeviceStatus(domain.DeviceStatus{
 		ID:               deviceID,
 		Name:             "Kitchen Smart Feeder",
 		FoodStockPercent: 75,
@@ -372,7 +392,16 @@ func defaultDeviceStatus(deviceID string) domain.DeviceStatus {
 	})
 }
 
+func (u *DashboardUsecase) normalizeDeviceStatus(status domain.DeviceStatus) domain.DeviceStatus {
+	return normalizeDeviceStatusWithDefault(status, u.defaultDeviceID)
+}
+
 func normalizeDeviceStatus(status domain.DeviceStatus) domain.DeviceStatus {
+	return normalizeDeviceStatusWithDefault(status, fallbackDeviceID)
+}
+
+func normalizeDeviceStatusWithDefault(status domain.DeviceStatus, defaultDeviceID string) domain.DeviceStatus {
+	defaultDeviceID = normalizeDefaultDeviceID(defaultDeviceID)
 	if strings.TrimSpace(status.ID) == "" {
 		status.ID = defaultDeviceID
 	}
@@ -397,6 +426,14 @@ func normalizeDeviceStatus(status domain.DeviceStatus) domain.DeviceStatus {
 		}
 	}
 	return status
+}
+
+func normalizeDefaultDeviceID(deviceID string) string {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return fallbackDeviceID
+	}
+	return deviceID
 }
 
 func foodStockLabel(percent float64) string {

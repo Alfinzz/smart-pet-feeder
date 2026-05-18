@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../config/app_config.dart';
 import 'token_storage.dart';
 
 class ApiClient {
@@ -26,10 +27,7 @@ class ApiClient {
     );
   }
 
-  static const baseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'https://smart-pet-feeder.alfian-gading.my.id/api/v1',
-  );
+  static const baseUrl = AppConfig.apiBaseUrl;
 
   final TokenStorage _tokenStorage;
   final Dio dio;

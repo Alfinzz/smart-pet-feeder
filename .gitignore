@@ -1,9 +1,15 @@
 .env
+.env.*
+!.env.example
+!backend/.env.example
+!mobile/.env.example
 *.log
 
 backend/.env
+mobile/.env
 backend/tmp/
 backend/.gocache/
+backend/uploads/
 .idea/
 .vscode/
 *.swp

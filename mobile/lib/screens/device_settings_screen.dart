@@ -127,7 +127,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50]?.withOpacity(0.5),
+                  color: Colors.blue[50]?.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.blue[100]!),
                 ),
@@ -229,7 +229,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                   border: Border.all(color: Colors.grey[200]!),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
+                      color: Colors.black.withValues(alpha: 0.02),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -352,7 +352,9 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.blue[700],
                           side: BorderSide(color: Colors.blue[300]!),
-                          backgroundColor: Colors.blue[50]?.withOpacity(0.5),
+                          backgroundColor: Colors.blue[50]?.withValues(
+                            alpha: 0.5,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -422,7 +424,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.blue[100]?.withOpacity(0.5),
+        color: Colors.blue[100]?.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(

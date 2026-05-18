@@ -1,4 +1,5 @@
 import '../models/manual_command.dart';
+import '../config/app_config.dart';
 import 'api_client.dart';
 
 class ControlService {
@@ -8,7 +9,7 @@ class ControlService {
 
   Future<ManualCommand> sendManualCommand({
     required String action,
-    String deviceId = 'ESP32-001',
+    String deviceId = AppConfig.deviceId,
   }) async {
     final response = await _apiClient.dio.post<Map<String, dynamic>>(
       '/control/manual',

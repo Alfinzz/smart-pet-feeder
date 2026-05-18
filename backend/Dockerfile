@@ -15,7 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/migrate
 FROM alpine:3.21
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates wget
+RUN apk add --no-cache ca-certificates wget \
+    && mkdir -p /app/uploads/pets
 
 COPY --from=build /out/api /app/api
 COPY --from=build /out/migrate /app/migrate
@@ -26,6 +27,7 @@ RUN chmod +x /app/docker-entrypoint.sh
 ENV APP_PORT=8080
 ENV GIN_MODE=release
 ENV MIGRATIONS_PATH=/app/migrations
+ENV UPLOAD_DIR=/app/uploads
 
 EXPOSE 8080
 

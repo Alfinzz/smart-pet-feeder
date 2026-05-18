@@ -22,11 +22,15 @@ type ProfileRepository interface {
 }
 
 type ProfileUsecase struct {
-	repo ProfileRepository
+	repo            ProfileRepository
+	defaultDeviceID string
 }
 
-func NewProfileUsecase(repo ProfileRepository) *ProfileUsecase {
-	return &ProfileUsecase{repo: repo}
+func NewProfileUsecase(repo ProfileRepository, defaultDeviceID string) *ProfileUsecase {
+	return &ProfileUsecase{
+		repo:            repo,
+		defaultDeviceID: normalizeDefaultDeviceID(defaultDeviceID),
+	}
 }
 
 func (u *ProfileUsecase) GetPetDetails(ctx context.Context, ownerID int64) (domain.PetDetails, error) {
@@ -40,7 +44,7 @@ func (u *ProfileUsecase) CreatePetDetails(ctx context.Context, ownerID int64, in
 		return domain.PetDetails{}, err
 	}
 
-	input, err := validatePetDetailsInput(input)
+	input, err := u.validatePetDetailsInput(input)
 	if err != nil {
 		return domain.PetDetails{}, err
 	}
@@ -48,7 +52,7 @@ func (u *ProfileUsecase) CreatePetDetails(ctx context.Context, ownerID int64, in
 }
 
 func (u *ProfileUsecase) UpdatePetDetails(ctx context.Context, ownerID int64, input domain.PetDetailsInput) (domain.PetDetails, error) {
-	input, err := validatePetDetailsInput(input)
+	input, err := u.validatePetDetailsInput(input)
 	if err != nil {
 		return domain.PetDetails{}, err
 	}
@@ -103,7 +107,7 @@ func (u *ProfileUsecase) UpsertNotificationPreferences(ctx context.Context, owne
 	return u.repo.UpsertNotificationPreferences(ctx, ownerID, input)
 }
 
-func validatePetDetailsInput(input domain.PetDetailsInput) (domain.PetDetailsInput, error) {
+func (u *ProfileUsecase) validatePetDetailsInput(input domain.PetDetailsInput) (domain.PetDetailsInput, error) {
 	input.DeviceID = strings.TrimSpace(input.DeviceID)
 	input.Name = strings.TrimSpace(input.Name)
 	input.Species = strings.TrimSpace(input.Species)
@@ -123,7 +127,7 @@ func validatePetDetailsInput(input domain.PetDetailsInput) (domain.PetDetailsInp
 		input.Gender = "unknown"
 	}
 	if input.DeviceID == "" {
-		input.DeviceID = defaultDeviceID
+		input.DeviceID = u.defaultDeviceID
 	}
 	if input.DailyFeedTargetGrams <= 0 {
 		return domain.PetDetailsInput{}, fmt.Errorf("%w: daily_feed_target_grams must be greater than 0", domain.ErrValidation)

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <application
-        android:label="smart_pet_monitoring"
+        android:label="Smart Pet Feeder"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

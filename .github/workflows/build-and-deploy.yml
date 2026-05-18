@@ -110,16 +110,31 @@ jobs:
         working-directory: mobile
         run: flutter test
 
-      - name: Validate mobile API base URL
+      - name: Create mobile environment file
         run: |
           if [ -z "${{ vars.API_BASE_URL }}" ]; then
-            echo "API_BASE_URL repository variable is required for release APK builds."
+            echo "API_BASE_URL repository variable is required for mobile builds."
             exit 1
           fi
+          {
+            echo "API_BASE_URL=${{ vars.API_BASE_URL }}"
+            echo "DEVICE_ID=${{ vars.DEVICE_ID || 'ESP32-001' }}"
+          } > mobile/.env
+
+      - name: Validate mobile environment
+        working-directory: mobile
+        run: |
+          . ./.env
+          test -n "$API_BASE_URL"
+          test -n "$DEVICE_ID"
 
       - name: Build Android APK
         working-directory: mobile
-        run: flutter build apk --release --dart-define=API_BASE_URL="${{ vars.API_BASE_URL }}"
+        run: |
+          . ./.env
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=DEVICE_ID="$DEVICE_ID"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

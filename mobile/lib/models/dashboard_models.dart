@@ -17,6 +17,7 @@ class PetProfile {
     required this.healthDescription,
     required this.activityMinutes,
     required this.sleepHours,
+    required this.photoUrl,
   });
 
   final int id;
@@ -34,6 +35,7 @@ class PetProfile {
   final String healthDescription;
   final int activityMinutes;
   final double sleepHours;
+  final String photoUrl;
 
   factory PetProfile.fromJson(Map<String, dynamic> json) {
     return PetProfile(
@@ -53,6 +55,7 @@ class PetProfile {
       healthDescription: json['health_description'] as String? ?? '',
       activityMinutes: (json['activity_minutes'] as num?)?.toInt() ?? 0,
       sleepHours: (json['sleep_hours'] as num?)?.toDouble() ?? 0,
+      photoUrl: json['photo_url'] as String? ?? '',
     );
   }
 }

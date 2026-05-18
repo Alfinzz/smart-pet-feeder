@@ -59,7 +59,8 @@ func (r *DashboardRepository) GetPetProfile(ctx context.Context, ownerID int64) 
 			health_headline,
 			health_description,
 			activity_minutes,
-			sleep_hours
+			sleep_hours,
+			COALESCE(photo_path, '')
 		FROM pets
 		WHERE owner_id = $1
 		ORDER BY id
@@ -83,6 +84,7 @@ func (r *DashboardRepository) GetPetProfile(ctx context.Context, ownerID int64) 
 		&pet.HealthDescription,
 		&pet.ActivityMinutes,
 		&pet.SleepHours,
+		&pet.PhotoPath,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -389,7 +391,8 @@ func (r *DashboardRepository) UpsertPetProfile(ctx context.Context, ownerID int6
 			health_headline,
 			health_description,
 			activity_minutes,
-			sleep_hours
+			sleep_hours,
+			COALESCE(photo_path, '')
 	`
 
 	var pet domain.PetProfile
@@ -426,6 +429,7 @@ func (r *DashboardRepository) UpsertPetProfile(ctx context.Context, ownerID int6
 		&pet.HealthDescription,
 		&pet.ActivityMinutes,
 		&pet.SleepHours,
+		&pet.PhotoPath,
 	); err != nil {
 		return domain.PetProfile{}, err
 	}
@@ -434,6 +438,87 @@ func (r *DashboardRepository) UpsertPetProfile(ctx context.Context, ownerID int6
 		return domain.PetProfile{}, err
 	}
 	return pet, nil
+}
+
+func (r *DashboardRepository) UpdatePetPhoto(ctx context.Context, ownerID int64, photoPath string) (domain.PetProfile, string, error) {
+	const query = `
+		WITH previous AS (
+			SELECT COALESCE(photo_path, '') AS old_photo_path
+			FROM pets
+			WHERE owner_id = $1
+		),
+		updated AS (
+			UPDATE pets
+			SET photo_path = $2
+			WHERE owner_id = $1
+			RETURNING
+				id,
+				owner_id,
+				device_id,
+				name,
+				species,
+				breed,
+				age_years,
+				weight_kg,
+				daily_feed_target_grams,
+				health_score,
+				health_status,
+				health_headline,
+				health_description,
+				activity_minutes,
+				sleep_hours,
+				COALESCE(photo_path, '') AS photo_path
+		)
+		SELECT
+			updated.id,
+			updated.owner_id,
+			updated.device_id,
+			updated.name,
+			updated.species,
+			updated.breed,
+			updated.age_years,
+			updated.weight_kg,
+			updated.daily_feed_target_grams,
+			updated.health_score,
+			updated.health_status,
+			updated.health_headline,
+			updated.health_description,
+			updated.activity_minutes,
+			updated.sleep_hours,
+			updated.photo_path,
+			previous.old_photo_path
+		FROM updated
+		JOIN previous ON TRUE
+	`
+
+	var pet domain.PetProfile
+	var oldPhotoPath string
+	err := r.pool.QueryRow(ctx, query, ownerID, photoPath).Scan(
+		&pet.ID,
+		&pet.OwnerID,
+		&pet.DeviceID,
+		&pet.Name,
+		&pet.Species,
+		&pet.Breed,
+		&pet.AgeYears,
+		&pet.WeightKG,
+		&pet.DailyFeedTargetGrams,
+		&pet.HealthScore,
+		&pet.HealthStatus,
+		&pet.HealthHeadline,
+		&pet.HealthDescription,
+		&pet.ActivityMinutes,
+		&pet.SleepHours,
+		&pet.PhotoPath,
+		&oldPhotoPath,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.PetProfile{}, "", domain.ErrNotFound
+		}
+		return domain.PetProfile{}, "", err
+	}
+	return pet, oldPhotoPath, nil
 }
 
 type careTaskScanner interface {
