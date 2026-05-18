@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import '../models/dashboard_models.dart';
 import '../services/settings_service.dart';
 
 class PetDetailsScreen extends StatefulWidget {
-  const PetDetailsScreen({super.key, required this.settingsService});
+  const PetDetailsScreen({
+    super.key,
+    required this.settingsService,
+    this.initialPet,
+  });
 
   final SettingsService settingsService;
+  final PetProfile? initialPet;
 
   @override
   State<PetDetailsScreen> createState() => _PetDetailsScreenState();
@@ -12,31 +18,49 @@ class PetDetailsScreen extends StatefulWidget {
 
 class _PetDetailsScreenState extends State<PetDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   String _petName = '';
+  String _species = 'Dog';
   String _breed = '';
   String _gender = 'Male';
   int _age = 0;
+  double _weightKg = 0;
   double _targetPortion = 250.0;
-  
+
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final pet = widget.initialPet;
+    if (pet != null) {
+      _petName = pet.name;
+      _species = pet.species;
+      _breed = pet.breed;
+      _age = pet.ageYears;
+      _weightKg = pet.weightKg;
+      _targetPortion = pet.dailyFeedTargetGrams;
+    }
+  }
 
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     _formKey.currentState!.save();
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       await widget.settingsService.updatePetDetails({
         'name': _petName,
+        'species': _species,
         'breed': _breed,
         'gender': _gender,
-        'age': _age,
-        'targetDailyPortion': _targetPortion,
+        'age_years': _age,
+        'weight_kg': _weightKg,
+        'daily_feed_target_grams': _targetPortion,
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -70,7 +94,10 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
         iconTheme: IconThemeData(color: Colors.blue[800]),
         title: Text(
           'Pet Details',
-          style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.blue[800],
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -88,7 +115,11 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.blue[50],
-                      child: Icon(Icons.pets, size: 50, color: Colors.blue[300]),
+                      child: Icon(
+                        Icons.pets,
+                        size: 50,
+                        color: Colors.blue[300],
+                      ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -100,16 +131,21 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2),
                         ),
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Inputs
               TextFormField(
+                initialValue: _petName,
                 decoration: InputDecoration(
                   labelText: 'Pet Name',
                   border: OutlineInputBorder(
@@ -118,12 +154,30 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                   filled: true,
                   fillColor: Colors.grey[50],
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
                 onSaved: (val) => _petName = val ?? '',
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
+                initialValue: _species,
+                decoration: InputDecoration(
+                  labelText: 'Species',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                ),
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
+                onSaved: (val) => _species = val ?? 'Dog',
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
+                initialValue: _breed,
                 decoration: InputDecoration(
                   labelText: 'Breed',
                   border: OutlineInputBorder(
@@ -135,7 +189,7 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                 onSaved: (val) => _breed = val ?? '',
               ),
               const SizedBox(height: 16),
-              
+
               DropdownButtonFormField<String>(
                 value: _gender,
                 decoration: InputDecoration(
@@ -157,8 +211,9 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
+                initialValue: _age > 0 ? _age.toString() : '',
                 decoration: InputDecoration(
                   labelText: 'Age',
                   border: OutlineInputBorder(
@@ -176,8 +231,32 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                 onSaved: (val) => _age = int.parse(val ?? '0'),
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
+                initialValue: _weightKg > 0 ? _weightKg.toStringAsFixed(1) : '',
+                decoration: InputDecoration(
+                  labelText: 'Weight',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey[50],
+                  suffixText: 'kg',
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) return 'Required';
+                  if (double.tryParse(val) == null) return 'Must be a number';
+                  return null;
+                },
+                onSaved: (val) => _weightKg = double.parse(val ?? '0'),
+              ),
+              const SizedBox(height: 16),
+
+              TextFormField(
+                initialValue: _targetPortion.toStringAsFixed(0),
                 decoration: InputDecoration(
                   labelText: 'Target Daily Portion',
                   helperText: 'Recommended: 250g',
@@ -188,7 +267,9 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                   fillColor: Colors.grey[50],
                   suffixText: 'g',
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (val) {
                   if (val == null || val.isEmpty) return 'Required';
                   if (double.tryParse(val) == null) return 'Must be a number';
@@ -196,9 +277,9 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                 },
                 onSaved: (val) => _targetPortion = double.parse(val ?? '0'),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Submit
               SizedBox(
                 height: 56,
@@ -212,16 +293,22 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                     ),
                     elevation: 0,
                   ),
-                  child: _isLoading 
-                    ? const SizedBox(
-                        height: 24,
-                        width: 24,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : const Text(
-                        'Save Changes',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Save Changes',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],

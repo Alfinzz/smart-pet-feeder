@@ -60,10 +60,23 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _showUnavailable(String feature) {
+    _showMessage('$feature belum tersedia di aplikasi ini.');
+  }
+
   String _messageFromDio(DioException error) {
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return 'Tidak bisa terhubung ke server. Periksa koneksi internet.';
+    }
+
     final data = error.response?.data;
     if (data is Map<String, dynamic> && data['error'] is String) {
       return data['error'] as String;
+    }
+    if (error.response?.statusCode == 401) {
+      return 'Email atau password salah.';
     }
     return 'Login gagal. Periksa email, password, atau server.';
   }
@@ -176,9 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            // TODO: Forgot password flow
-                          },
+                          onTap: () => _showUnavailable('Reset password'),
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(
@@ -254,7 +265,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFF1565C0,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 12,
                             offset: const Offset(0, 4),
                           ),
@@ -312,9 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            // TODO: Navigate to Sign Up
-                          },
+                          onTap: () => _showUnavailable('Sign up'),
                           child: const Text(
                             'Sign Up',
                             style: TextStyle(

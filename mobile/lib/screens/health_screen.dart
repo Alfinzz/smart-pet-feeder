@@ -52,9 +52,8 @@ class _HealthScreenState extends State<HealthScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => LogVitalsBottomSheet(
-        settingsService: widget.settingsService,
-      ),
+      builder: (context) =>
+          LogVitalsBottomSheet(settingsService: widget.settingsService),
     );
 
     if (mounted) {
@@ -276,7 +275,13 @@ class _HealthScreenState extends State<HealthScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Daftar lengkap tugas belum tersedia.'),
+                    ),
+                  );
+                },
                 child: const Text(
                   'View All',
                   style: TextStyle(

@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import '../models/dashboard_models.dart';
 import '../services/settings_service.dart';
 
 class DeviceSettingsScreen extends StatefulWidget {
-  const DeviceSettingsScreen({super.key, required this.settingsService});
+  const DeviceSettingsScreen({
+    super.key,
+    required this.settingsService,
+    this.initialDevice,
+  });
 
   final SettingsService settingsService;
+  final DeviceStatus? initialDevice;
 
   @override
   State<DeviceSettingsScreen> createState() => _DeviceSettingsScreenState();
@@ -12,27 +18,36 @@ class DeviceSettingsScreen extends StatefulWidget {
 
 class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   String _deviceName = 'Kitchen Feeder';
   double _portionSliderValue = 1; // 0: 1/8c, 1: 1/4c, 2: 1/2c, 3: 1c
-  
+
   bool _isSaving = false;
   bool _isCalibrating = false;
 
   final List<String> _portionLabels = ['1/8c', '1/4c', '1/2c', '1c'];
 
+  @override
+  void initState() {
+    super.initState();
+    final device = widget.initialDevice;
+    if (device != null && device.name.isNotEmpty) {
+      _deviceName = device.name;
+    }
+  }
+
   Future<void> _saveSettings() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
-    
+
     setState(() => _isSaving = true);
-    
+
     try {
       await widget.settingsService.updateDeviceSettings({
         'deviceName': _deviceName,
         'manualPortionSize': _portionLabels[_portionSliderValue.toInt()],
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -55,13 +70,13 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
       }
     }
   }
-  
+
   Future<void> _calibrate() async {
     setState(() => _isCalibrating = true);
-    
+
     try {
       await widget.settingsService.calibrateSensor();
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -94,7 +109,10 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
         iconTheme: IconThemeData(color: Colors.blue[800]),
         title: Text(
           'Device Settings',
-          style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.blue[800],
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -121,7 +139,11 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(Icons.pets, size: 40, color: Colors.blue[600]),
+                      child: Icon(
+                        Icons.pets,
+                        size: 40,
+                        color: Colors.blue[600],
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -138,14 +160,21 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         const SizedBox(width: 8),
                         const Text(
                           'Online & Connected',
-                          style: TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 12),
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Kitchen Feeder Pro',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -160,31 +189,37 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         const SizedBox(width: 8),
                         _buildBadge(Icons.battery_charging_full, 'Battery 85%'),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Device Name Input
               TextFormField(
                 initialValue: _deviceName,
                 decoration: InputDecoration(
                   labelText: 'Device Name',
-                  prefixIcon: Icon(Icons.edit, color: Colors.blue[600], size: 20),
+                  prefixIcon: Icon(
+                    Icons.edit,
+                    color: Colors.blue[600],
+                    size: 20,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(color: Colors.grey[300]!),
                   ),
                   filled: true,
                   fillColor: Colors.white,
-                  helperText: 'This name will appear in notifications and dashboard.',
+                  helperText:
+                      'This name will appear in notifications and dashboard.',
                 ),
-                validator: (val) => val == null || val.isEmpty ? 'Required' : null,
+                validator: (val) =>
+                    val == null || val.isEmpty ? 'Required' : null,
                 onSaved: (val) => _deviceName = val ?? '',
               ),
               const SizedBox(height: 24),
-              
+
               // Portion Slider
               Container(
                 padding: const EdgeInsets.all(20),
@@ -208,7 +243,10 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       children: [
                         const Text(
                           'Manual Feed Portion Size',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                         Container(
                           padding: const EdgeInsets.all(6),
@@ -216,8 +254,12 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                             color: Colors.blue[50],
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.restaurant, color: Colors.blue[600], size: 16),
-                        )
+                          child: Icon(
+                            Icons.restaurant,
+                            color: Colors.blue[600],
+                            size: 16,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -231,12 +273,19 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       children: [
                         Text(
                           _portionLabels[_portionSliderValue.toInt()],
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: Colors.blue[700]),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 24,
+                            color: Colors.blue[700],
+                          ),
                         ),
                         const SizedBox(width: 8),
                         const Padding(
                           padding: EdgeInsets.only(bottom: 4.0),
-                          child: Text('Cup', style: TextStyle(fontWeight: FontWeight.w600)),
+                          child: Text(
+                            'Cup',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ],
                     ),
@@ -255,14 +304,22 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: _portionLabels
-                          .map((e) => Text(e, style: TextStyle(color: Colors.grey[500], fontSize: 12)))
+                          .map(
+                            (e) => Text(
+                              e,
+                              style: TextStyle(
+                                color: Colors.grey[500],
+                                fontSize: 12,
+                              ),
+                            ),
+                          )
                           .toList(),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Calibrate Sensor
               Container(
                 padding: const EdgeInsets.all(20),
@@ -275,7 +332,10 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                   children: [
                     const Text(
                       'Scale Calibration',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -301,17 +361,22 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                             ? const SizedBox(
                                 height: 16,
                                 width: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.scale, size: 20),
-                        label: const Text('Calibrate Sensor (Tare)', style: TextStyle(fontWeight: FontWeight.w600)),
+                        label: const Text(
+                          'Calibrate Sensor (Tare)',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Save Settings
               SizedBox(
                 height: 56,
@@ -332,11 +397,17 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       ? const SizedBox(
                           height: 24,
                           width: 24,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text(
                           'Save Settings',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
               ),
@@ -361,7 +432,11 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.blue[900], fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: Colors.blue[900],
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

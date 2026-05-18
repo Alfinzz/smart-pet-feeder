@@ -110,6 +110,13 @@ jobs:
         working-directory: mobile
         run: flutter test
 
+      - name: Validate mobile API base URL
+        run: |
+          if [ -z "${{ vars.API_BASE_URL }}" ]; then
+            echo "API_BASE_URL repository variable is required for release APK builds."
+            exit 1
+          fi
+
       - name: Build Android APK
         working-directory: mobile
         run: flutter build apk --release --dart-define=API_BASE_URL="${{ vars.API_BASE_URL }}"

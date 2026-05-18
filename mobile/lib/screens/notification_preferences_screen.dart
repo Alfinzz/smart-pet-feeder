@@ -3,29 +3,80 @@ import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
-  const NotificationPreferencesScreen({super.key, required this.settingsService});
+  const NotificationPreferencesScreen({
+    super.key,
+    required this.settingsService,
+  });
 
   final SettingsService settingsService;
 
   @override
-  State<NotificationPreferencesScreen> createState() => _NotificationPreferencesScreenState();
+  State<NotificationPreferencesScreen> createState() =>
+      _NotificationPreferencesScreenState();
 }
 
-class _NotificationPreferencesScreenState extends State<NotificationPreferencesScreen> {
+class _NotificationPreferencesScreenState
+    extends State<NotificationPreferencesScreen> {
   bool _lowFoodAlert = true;
   bool _emptyWaterAlert = true;
   bool _feedSuccessReport = false;
   bool _healthAnomalies = true;
-  
+
   bool _isLoading = false;
 
-  Future<void> _updatePreference(String key, bool value) async {
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
     setState(() => _isLoading = true);
-    
+
+    try {
+      final preferences = await widget.settingsService
+          .fetchNotificationPreferences();
+      if (!mounted) return;
+      setState(() {
+        _lowFoodAlert = preferences['low_food_alert'] as bool? ?? _lowFoodAlert;
+        _emptyWaterAlert =
+            preferences['empty_water_alert'] as bool? ?? _emptyWaterAlert;
+        _feedSuccessReport =
+            preferences['feeding_success_report'] as bool? ??
+            _feedSuccessReport;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to load notification preferences.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _updatePreference(String key, bool value) async {
+    if (key == 'healthAnomalies') {
+      _updateState(key, value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Health anomaly alerts belum tersedia di backend.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
     // Save old state to revert if needed
     final oldState = _getState(key);
     _updateState(key, value);
-    
+
     try {
       await widget.settingsService.updateNotificationPreferences({
         'lowFoodAlert': _lowFoodAlert,
@@ -38,7 +89,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       if (!mounted) return;
       // Revert state
       _updateState(key, oldState);
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update preference: ${e.toString()}'),
@@ -51,24 +102,37 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
       }
     }
   }
-  
+
   bool _getState(String key) {
     switch (key) {
-      case 'lowFood': return _lowFoodAlert;
-      case 'emptyWater': return _emptyWaterAlert;
-      case 'feedSuccess': return _feedSuccessReport;
-      case 'healthAnomalies': return _healthAnomalies;
-      default: return false;
+      case 'lowFood':
+        return _lowFoodAlert;
+      case 'emptyWater':
+        return _emptyWaterAlert;
+      case 'feedSuccess':
+        return _feedSuccessReport;
+      case 'healthAnomalies':
+        return _healthAnomalies;
+      default:
+        return false;
     }
   }
-  
+
   void _updateState(String key, bool value) {
     setState(() {
       switch (key) {
-        case 'lowFood': _lowFoodAlert = value; break;
-        case 'emptyWater': _emptyWaterAlert = value; break;
-        case 'feedSuccess': _feedSuccessReport = value; break;
-        case 'healthAnomalies': _healthAnomalies = value; break;
+        case 'lowFood':
+          _lowFoodAlert = value;
+          break;
+        case 'emptyWater':
+          _emptyWaterAlert = value;
+          break;
+        case 'feedSuccess':
+          _feedSuccessReport = value;
+          break;
+        case 'healthAnomalies':
+          _healthAnomalies = value;
+          break;
       }
     });
   }
@@ -83,7 +147,10 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
         iconTheme: IconThemeData(color: Colors.blue[800]),
         title: Text(
           'Notification Preferences',
-          style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: Colors.blue[800],
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
@@ -103,13 +170,10 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
               const SizedBox(height: 8),
               Text(
                 'Manage how Buddy communicates with you about your pet\'s feeding and health.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
-              
+
               Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -126,7 +190,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                   children: [
                     _buildPreferenceTile(
                       title: 'Low Food Alert',
-                      description: 'Get notified when the hopper is below 10% capacity.',
+                      description:
+                          'Get notified when the hopper is below 10% capacity.',
                       icon: Icons.restaurant,
                       value: _lowFoodAlert,
                       onChanged: (val) => _updatePreference('lowFood', val),
@@ -134,7 +199,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                     const Divider(height: 1, indent: 64, endIndent: 16),
                     _buildPreferenceTile(
                       title: 'Empty Water Alert',
-                      description: 'Alerts if the water bowl requires immediate refilling.',
+                      description:
+                          'Alerts if the water bowl requires immediate refilling.',
                       icon: Icons.water_drop,
                       value: _emptyWaterAlert,
                       onChanged: (val) => _updatePreference('emptyWater', val),
@@ -142,7 +208,8 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                     const Divider(height: 1, indent: 64, endIndent: 16),
                     _buildPreferenceTile(
                       title: 'Feed Success Report',
-                      description: 'Receive a summary after every scheduled feeding.',
+                      description:
+                          'Receive a summary after every scheduled feeding.',
                       icon: Icons.check_circle_outline,
                       value: _feedSuccessReport,
                       onChanged: (val) => _updatePreference('feedSuccess', val),
@@ -150,10 +217,12 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                     const Divider(height: 1, indent: 64, endIndent: 16),
                     _buildPreferenceTile(
                       title: 'Health Anomalies',
-                      description: 'Crucial alerts for irregular eating or drinking patterns.',
+                      description:
+                          'Crucial alerts for irregular eating or drinking patterns.',
                       icon: Icons.monitor_heart,
                       value: _healthAnomalies,
-                      onChanged: (val) => _updatePreference('healthAnomalies', val),
+                      onChanged: (val) =>
+                          _updatePreference('healthAnomalies', val),
                       isLast: true,
                     ),
                   ],

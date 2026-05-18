@@ -318,7 +318,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Semua log terbaru sudah ditampilkan.'),
+                    ),
+                  );
+                },
                 child: const Text(
                   'View All',
                   style: TextStyle(

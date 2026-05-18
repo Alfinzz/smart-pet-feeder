@@ -147,15 +147,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Pet Details',
               subtitle:
                   '${pet?.species ?? 'Pet'}, ${(pet?.weightKg ?? 0).toStringAsFixed(1)} kg',
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => PetDetailsScreen(
                       settingsService: widget.settingsService,
+                      initialPet: pet,
                     ),
                   ),
                 );
+                if (mounted) await _loadProfile();
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
@@ -166,15 +168,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               title: 'Device Settings',
               subtitle:
                   '${device?.name ?? 'Smart Feeder'}, ${(device?.foodStockPercent ?? 0).round()}% stock',
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => DeviceSettingsScreen(
                       settingsService: widget.settingsService,
+                      initialDevice: device,
                     ),
                   ),
                 );
+                if (mounted) await _loadProfile();
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),
@@ -184,8 +188,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               iconBgColor: const Color(0xFFFFFBEB),
               title: 'Notification Preferences',
               subtitle: 'Alerts, Reminders',
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => NotificationPreferencesScreen(
@@ -193,6 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 );
+                if (mounted) await _loadProfile();
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),

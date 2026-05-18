@@ -390,7 +390,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Detail nutrisi tersedia di tab History.'),
+                    ),
+                  );
+                },
                 child: Row(
                   children: [
                     Text(
