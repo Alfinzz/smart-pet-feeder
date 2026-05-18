@@ -8,7 +8,7 @@ class ControlService {
 
   Future<ManualCommand> sendManualCommand({
     required String action,
-    String deviceId = 'esp32-001',
+    String deviceId = 'ESP32-001',
   }) async {
     final response = await _apiClient.dio.post<Map<String, dynamic>>(
       '/control/manual',

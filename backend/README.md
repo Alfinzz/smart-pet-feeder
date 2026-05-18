@@ -105,7 +105,7 @@ Sensor update:
 
 ```json
 {
-  "device_id": "esp32-001",
+  "device_id": "ESP32-001",
   "food_stock_percent": 72,
   "water_available": true,
   "water_status": "Clean & Fresh"
@@ -116,7 +116,7 @@ Manual command:
 
 ```json
 {
-  "device_id": "esp32-001",
+  "device_id": "ESP32-001",
   "action": "feed"
 }
 ```
@@ -149,7 +149,7 @@ Pet details:
 
 ```json
 {
-  "device_id": "esp32-001",
+  "device_id": "ESP32-001",
   "name": "Fluffy",
   "species": "Dog",
   "breed": "Golden Retriever",

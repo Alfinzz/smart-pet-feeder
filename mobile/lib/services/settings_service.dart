@@ -53,7 +53,7 @@ class SettingsService {
             fallback: 45,
           ),
           'sleep_hours': _doubleValue(pet['sleep_hours'], null, fallback: 9.5),
-          'device_id': _stringValue(pet['device_id'], null, 'esp32-001'),
+          'device_id': _stringValue(pet['device_id'], null, 'ESP32-001'),
         },
       );
     } on DioException catch (e) {

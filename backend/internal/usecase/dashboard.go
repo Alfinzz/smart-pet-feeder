@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultDeviceID             = "esp32-001"
+	defaultDeviceID             = "ESP32-001"
 	defaultDailyFeedTargetGrams = 150
 )
 

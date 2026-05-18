@@ -55,7 +55,7 @@ func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner
 
 	const deviceQuery = `
 		INSERT INTO devices (id, name, food_stock_percent, water_available, water_status, last_seen_at)
-		VALUES ('esp32-001', 'Kitchen Smart Feeder', 75, TRUE, 'Clean & Fresh', NOW())
+		VALUES ('ESP32-001', 'Kitchen Smart Feeder', 75, TRUE, 'Clean & Fresh', NOW())
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name
 	`
@@ -82,7 +82,7 @@ func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner
 		)
 		VALUES (
 			$1,
-			'esp32-001',
+			'ESP32-001',
 			'Fluffy',
 			'Dog',
 			'Golden Retriever',
