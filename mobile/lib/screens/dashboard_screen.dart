@@ -118,23 +118,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _loadDashboard,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          // Greeting header
-          _buildGreetingHeader(),
-          const SizedBox(height: 20),
-          // Status cards row
-          _buildStatusCards(),
-          const SizedBox(height: 20),
-          // Weekly Nutrition chart
-          _buildNutritionCard(),
-          const SizedBox(height: 24),
-          // Action buttons
-          _buildActionButtons(),
-        ],
+    return SafeArea(
+      bottom: false,
+      child: RefreshIndicator(
+        onRefresh: _loadDashboard,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            // Greeting header
+            _buildGreetingHeader(),
+            const SizedBox(height: 20),
+            // Status cards row
+            _buildStatusCards(),
+            const SizedBox(height: 20),
+            // Weekly Nutrition chart
+            _buildNutritionCard(),
+            const SizedBox(height: 24),
+            // Action buttons
+            _buildActionButtons(),
+          ],
+        ),
       ),
     );
   }
