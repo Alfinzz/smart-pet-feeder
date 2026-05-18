@@ -1,6 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-
 import 'token_storage.dart';
 
 class ApiClient {
@@ -30,7 +28,7 @@ class ApiClient {
 
   static const baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: kIsWeb ? 'http://localhost:8080/api/v1' : 'http://10.0.2.2:8080/api/v1',
+    defaultValue: 'https://smart-pet-feeder.alfian-gading.my.id/api/v1',
   );
 
   final TokenStorage _tokenStorage;

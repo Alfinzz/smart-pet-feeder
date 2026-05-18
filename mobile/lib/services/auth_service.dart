@@ -21,4 +21,19 @@ class AuthService {
     await _tokenStorage.saveToken(auth.token);
     return auth;
   }
+
+  Future<AuthResponse> register({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await _apiClient.dio.post<Map<String, dynamic>>(
+      '/auth/register',
+      data: {'name': name, 'email': email, 'password': password},
+    );
+
+    final auth = AuthResponse.fromJson(response.data!);
+    await _tokenStorage.saveToken(auth.token);
+    return auth;
+  }
 }

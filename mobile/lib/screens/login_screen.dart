@@ -14,30 +14,41 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _loading = false;
+  bool _registerMode = false;
   bool _obscurePassword = true;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
 
-  Future<void> _login() async {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     setState(() => _loading = true);
     try {
-      await widget.authService.login(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      if (_registerMode) {
+        await widget.authService.register(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      } else {
+        await widget.authService.login(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+      }
 
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/home');
@@ -60,6 +71,11 @@ class _LoginScreenState extends State<LoginScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
+  void _toggleMode() {
+    if (_loading) return;
+    setState(() => _registerMode = !_registerMode);
+  }
+
   void _showUnavailable(String feature) {
     _showMessage('$feature belum tersedia di aplikasi ini.');
   }
@@ -72,8 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     final data = error.response?.data;
-    if (data is Map<String, dynamic> && data['error'] is String) {
-      return data['error'] as String;
+    if (data is Map<String, dynamic>) {
+      final message = data['error'] ?? data['message'];
+      if (message != null) return message.toString();
     }
     if (error.response?.statusCode == 401) {
       return 'Email atau password salah.';
@@ -119,7 +136,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Welcome back. Please sign in to continue.',
+                      _registerMode
+                          ? 'Create an account to start monitoring your feeder.'
+                          : 'Welcome back. Please sign in to continue.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -127,6 +146,55 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
+                    if (_registerMode) ...[
+                      const Text(
+                        'Name',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _nameController,
+                        textInputAction: TextInputAction.next,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: 'Smart Pet Owner',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF1565C0),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (!_registerMode) return null;
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'Nama wajib diisi';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     // Email field
                     const Text(
                       'Email Address',
@@ -206,7 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _loading ? null : _login(),
+                      onFieldSubmitted: (_) => _loading ? null : _submit(),
                       style: const TextStyle(fontSize: 15),
                       decoration: InputDecoration(
                         hintText: '••••••••',
@@ -248,8 +316,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       validator: (value) {
-                        if ((value ?? '').isEmpty) {
+                        final password = value ?? '';
+                        if (password.isEmpty) {
                           return 'Password wajib diisi';
+                        }
+                        if (_registerMode && password.length < 8) {
+                          return 'Password minimal 8 karakter';
                         }
                         return null;
                       },
@@ -274,7 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                       child: ElevatedButton(
-                        onPressed: _loading ? null : _login,
+                        onPressed: _loading ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
@@ -291,19 +363,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Row(
+                            : Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    'Sign In',
-                                    style: TextStyle(
+                                    _registerMode ? 'Sign Up' : 'Sign In',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.white,
                                     ),
                                   ),
-                                  SizedBox(width: 8),
-                                  Icon(
+                                  const SizedBox(width: 8),
+                                  const Icon(
                                     Icons.arrow_forward,
                                     size: 20,
                                     color: Colors.white,
@@ -318,20 +390,27 @@ class _LoginScreenState extends State<LoginScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          "Don't have an account? ",
+                          _registerMode
+                              ? 'Already have an account? '
+                              : "Don't have an account? ",
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade600,
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () => _showUnavailable('Sign up'),
-                          child: const Text(
-                            'Sign Up',
+                        TextButton(
+                          onPressed: _toggleMode,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 36),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            _registerMode ? 'Sign In' : 'Sign Up',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1565C0),
+                              color: const Color(0xFF1565C0),
                             ),
                           ),
                         ),
