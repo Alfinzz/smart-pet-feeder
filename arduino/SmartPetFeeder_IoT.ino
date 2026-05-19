@@ -20,7 +20,15 @@
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
 #include <HX711.h>
-#include "secrets.h"
+
+// ===================== KONFIGURASI WiFi =====================
+const char* WIFI_SSID     = "NAMA_WIFI_KAMU";
+const char* WIFI_PASSWORD = "PASSWORD_WIFI_KAMU";
+
+// ===================== KONFIGURASI BACKEND =====================
+const char* BACKEND_URL    = "https://smart-pet-feeder.alfian-gading.my.id";
+const char* DEVICE_API_KEY = "fY-XGzWSxyPe4a9IpMtWT5H1Ddb0tdpcuRkcirkuqa8";
+const char* DEVICE_ID      = "ESP32-001";
 
 // ===================== PIN DEFINITION =====================
 #define SERVO_PIN        18
