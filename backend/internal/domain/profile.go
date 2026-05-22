@@ -29,17 +29,24 @@ type DeviceSettings struct {
 	ID                     string
 	Name                   string
 	ManualFeedPortionGrams float64
+	ServoOpenDegrees       int
+	ServoClosedDegrees     int
+	AutomationEnabled      bool
 	FoodStockPercent       float64
 	WaterAvailable         bool
 	WaterStatus            string
 	CalibrationStatus      string
 	CalibrationRequestedAt *time.Time
 	LastSeenAt             time.Time
+	ConfigUpdatedAt        time.Time
 }
 
 type DeviceSettingsInput struct {
 	Name                   string
 	ManualFeedPortionGrams float64
+	ServoOpenDegrees       *int
+	ServoClosedDegrees     *int
+	AutomationEnabled      *bool
 }
 
 type NotificationPreferences struct {

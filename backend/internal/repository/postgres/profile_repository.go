@@ -151,12 +151,16 @@ func (r *ProfileRepository) GetDeviceSettings(ctx context.Context, ownerID int64
 			devices.id,
 			devices.name,
 			devices.manual_feed_portion_grams,
+			devices.servo_open_degrees,
+			devices.servo_closed_degrees,
+			devices.automation_enabled,
 			devices.food_stock_percent,
 			devices.water_available,
 			devices.water_status,
 			devices.calibration_status,
 			devices.calibration_requested_at,
-			devices.last_seen_at
+			devices.last_seen_at,
+			devices.config_updated_at
 		FROM pets
 		JOIN devices ON devices.id = pets.device_id
 		WHERE pets.owner_id = $1
@@ -166,12 +170,38 @@ func (r *ProfileRepository) GetDeviceSettings(ctx context.Context, ownerID int64
 	return r.scanDeviceSettings(ctx, query, ownerID)
 }
 
+func (r *ProfileRepository) GetDeviceConfig(ctx context.Context, deviceID string) (domain.DeviceSettings, error) {
+	const query = `
+		SELECT
+			id,
+			name,
+			manual_feed_portion_grams,
+			servo_open_degrees,
+			servo_closed_degrees,
+			automation_enabled,
+			food_stock_percent,
+			water_available,
+			water_status,
+			calibration_status,
+			calibration_requested_at,
+			last_seen_at,
+			config_updated_at
+		FROM devices
+		WHERE id = $1
+	`
+	return r.scanDeviceSettings(ctx, query, deviceID)
+}
+
 func (r *ProfileRepository) UpdateDeviceSettings(ctx context.Context, ownerID int64, input domain.DeviceSettingsInput) (domain.DeviceSettings, error) {
 	const query = `
 		UPDATE devices
 		SET
 			name = COALESCE(NULLIF($2, ''), devices.name),
-			manual_feed_portion_grams = CASE WHEN $3::double precision > 0 THEN $3::double precision ELSE devices.manual_feed_portion_grams END
+			manual_feed_portion_grams = CASE WHEN $3::double precision > 0 THEN $3::double precision ELSE devices.manual_feed_portion_grams END,
+			servo_open_degrees = COALESCE($4::integer, devices.servo_open_degrees),
+			servo_closed_degrees = COALESCE($5::integer, devices.servo_closed_degrees),
+			automation_enabled = COALESCE($6::boolean, devices.automation_enabled),
+			config_updated_at = NOW()
 		FROM pets
 		WHERE pets.device_id = devices.id
 		  AND pets.owner_id = $1
@@ -179,14 +209,18 @@ func (r *ProfileRepository) UpdateDeviceSettings(ctx context.Context, ownerID in
 			devices.id,
 			devices.name,
 			devices.manual_feed_portion_grams,
+			devices.servo_open_degrees,
+			devices.servo_closed_degrees,
+			devices.automation_enabled,
 			devices.food_stock_percent,
 			devices.water_available,
 			devices.water_status,
 			devices.calibration_status,
 			devices.calibration_requested_at,
-			devices.last_seen_at
+			devices.last_seen_at,
+			devices.config_updated_at
 	`
-	return r.scanDeviceSettings(ctx, query, ownerID, input.Name, input.ManualFeedPortionGrams)
+	return r.scanDeviceSettings(ctx, query, ownerID, input.Name, input.ManualFeedPortionGrams, input.ServoOpenDegrees, input.ServoClosedDegrees, input.AutomationEnabled)
 }
 
 func (r *ProfileRepository) CalibrateDevice(ctx context.Context, ownerID int64) (domain.DeviceSettings, error) {
@@ -194,7 +228,8 @@ func (r *ProfileRepository) CalibrateDevice(ctx context.Context, ownerID int64) 
 		UPDATE devices
 		SET
 			calibration_status = 'tare_requested',
-			calibration_requested_at = NOW()
+			calibration_requested_at = NOW(),
+			config_updated_at = NOW()
 		FROM pets
 		WHERE pets.device_id = devices.id
 		  AND pets.owner_id = $1
@@ -202,12 +237,16 @@ func (r *ProfileRepository) CalibrateDevice(ctx context.Context, ownerID int64) 
 			devices.id,
 			devices.name,
 			devices.manual_feed_portion_grams,
+			devices.servo_open_degrees,
+			devices.servo_closed_degrees,
+			devices.automation_enabled,
 			devices.food_stock_percent,
 			devices.water_available,
 			devices.water_status,
 			devices.calibration_status,
 			devices.calibration_requested_at,
-			devices.last_seen_at
+			devices.last_seen_at,
+			devices.config_updated_at
 	`
 	return r.scanDeviceSettings(ctx, query, ownerID)
 }
@@ -317,12 +356,16 @@ func scanDeviceSettingsRow(row rowScanner) (domain.DeviceSettings, error) {
 		&settings.ID,
 		&settings.Name,
 		&settings.ManualFeedPortionGrams,
+		&settings.ServoOpenDegrees,
+		&settings.ServoClosedDegrees,
+		&settings.AutomationEnabled,
 		&settings.FoodStockPercent,
 		&settings.WaterAvailable,
 		&settings.WaterStatus,
 		&settings.CalibrationStatus,
 		&calibrationRequestedAt,
 		&settings.LastSeenAt,
+		&settings.ConfigUpdatedAt,
 	); err != nil {
 		return domain.DeviceSettings{}, err
 	}

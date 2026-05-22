@@ -69,6 +69,10 @@ class DeviceStatus {
     required this.foodStockLabel,
     required this.waterAvailable,
     required this.waterStatus,
+    required this.manualFeedPortionGrams,
+    required this.servoOpenDegrees,
+    required this.servoClosedDegrees,
+    required this.automationEnabled,
     required this.lastSeenAt,
   });
 
@@ -78,6 +82,10 @@ class DeviceStatus {
   final String foodStockLabel;
   final bool waterAvailable;
   final String waterStatus;
+  final double manualFeedPortionGrams;
+  final int servoOpenDegrees;
+  final int servoClosedDegrees;
+  final bool automationEnabled;
   final DateTime lastSeenAt;
 
   double get foodStockFraction =>
@@ -91,6 +99,11 @@ class DeviceStatus {
       foodStockLabel: json['food_stock_label'] as String? ?? '',
       waterAvailable: json['water_available'] as bool? ?? false,
       waterStatus: json['water_status'] as String? ?? '',
+      manualFeedPortionGrams:
+          (json['manual_feed_portion_grams'] as num?)?.toDouble() ?? 30,
+      servoOpenDegrees: (json['servo_open_degrees'] as num?)?.toInt() ?? 25,
+      servoClosedDegrees: (json['servo_closed_degrees'] as num?)?.toInt() ?? 55,
+      automationEnabled: json['automation_enabled'] as bool? ?? false,
       lastSeenAt:
           DateTime.tryParse(json['last_seen_at'] as String? ?? '') ??
           DateTime.now(),

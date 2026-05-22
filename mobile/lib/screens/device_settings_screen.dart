@@ -21,9 +21,13 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
 
   String _deviceName = 'Kitchen Feeder';
   double _portionSliderValue = 1; // 0: 1/8c, 1: 1/4c, 2: 1/2c, 3: 1c
+  double _servoOpenValue = 25;
+  double _servoClosedValue = 55;
+  bool _automationEnabled = false;
 
   bool _isSaving = false;
   bool _isCalibrating = false;
+  bool _isTestingServo = false;
 
   final List<String> _portionLabels = ['1/8c', '1/4c', '1/2c', '1c'];
 
@@ -34,11 +38,60 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
     if (device != null && device.name.isNotEmpty) {
       _deviceName = device.name;
     }
+    if (device != null) {
+      _servoOpenValue = device.servoOpenDegrees.toDouble();
+      _servoClosedValue = device.servoClosedDegrees.toDouble();
+      _automationEnabled = device.automationEnabled;
+      final grams = device.manualFeedPortionGrams;
+      if (grams <= 15) {
+        _portionSliderValue = 0;
+      } else if (grams <= 30) {
+        _portionSliderValue = 1;
+      } else if (grams <= 60) {
+        _portionSliderValue = 2;
+      } else {
+        _portionSliderValue = 3;
+      }
+    }
+    _loadDeviceSettings();
+  }
+
+  Future<void> _loadDeviceSettings() async {
+    try {
+      final settings = await widget.settingsService.fetchDeviceSettings();
+      if (!mounted) return;
+      setState(() {
+        final name = settings['name'] as String? ?? '';
+        if (name.isNotEmpty) _deviceName = name;
+        _servoOpenValue =
+            (settings['servo_open_degrees'] as num?)?.toDouble() ??
+            _servoOpenValue;
+        _servoClosedValue =
+            (settings['servo_closed_degrees'] as num?)?.toDouble() ??
+            _servoClosedValue;
+        _automationEnabled =
+            settings['automation_enabled'] as bool? ?? _automationEnabled;
+        final grams =
+            (settings['manual_feed_portion_grams'] as num?)?.toDouble() ?? 30;
+        if (grams <= 15) {
+          _portionSliderValue = 0;
+        } else if (grams <= 30) {
+          _portionSliderValue = 1;
+        } else if (grams <= 60) {
+          _portionSliderValue = 2;
+        } else {
+          _portionSliderValue = 3;
+        }
+      });
+    } catch (_) {
+      // Keep initial dashboard values if the settings endpoint is unavailable.
+    }
   }
 
   Future<void> _saveSettings() async {
     if (!_formKey.currentState!.validate()) return;
     _formKey.currentState!.save();
+    if (!_validateServoRange()) return;
 
     setState(() => _isSaving = true);
 
@@ -46,6 +99,9 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
       await widget.settingsService.updateDeviceSettings({
         'deviceName': _deviceName,
         'manualPortionSize': _portionLabels[_portionSliderValue.toInt()],
+        'servo_open_degrees': _servoOpenValue.round(),
+        'servo_closed_degrees': _servoClosedValue.round(),
+        'automation_enabled': _automationEnabled,
       });
 
       if (!mounted) return;
@@ -69,6 +125,58 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
         setState(() => _isSaving = false);
       }
     }
+  }
+
+  Future<void> _testServo() async {
+    if (_isTestingServo) return;
+    if (!_validateServoRange()) return;
+    setState(() => _isTestingServo = true);
+
+    try {
+      await widget.settingsService.updateDeviceSettings({
+        'deviceName': _deviceName,
+        'manualPortionSize': _portionLabels[_portionSliderValue.toInt()],
+        'servo_open_degrees': _servoOpenValue.round(),
+        'servo_closed_degrees': _servoClosedValue.round(),
+        'automation_enabled': _automationEnabled,
+      });
+      await widget.settingsService.testServo(
+        deviceId: widget.initialDevice?.id,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Servo test command sent.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to test servo: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingServo = false);
+      }
+    }
+  }
+
+  bool _validateServoRange() {
+    if (_servoOpenValue.round() == _servoClosedValue.round()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Servo open and closed angles must be different.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+    return true;
   }
 
   Future<void> _calibrate() async {
@@ -337,6 +445,104 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
               ),
               const SizedBox(height: 24),
 
+              // Servo Calibration
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Feed Gate Servo',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Icon(Icons.tune, color: Colors.blue[600], size: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Use a smaller movement range if the physical gate has limited space.',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    ),
+                    const SizedBox(height: 18),
+                    _buildServoSlider(
+                      label: 'Open angle',
+                      value: _servoOpenValue,
+                      onChanged: (value) => setState(() {
+                        _servoOpenValue = value;
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildServoSlider(
+                      label: 'Closed angle',
+                      value: _servoClosedValue,
+                      onChanged: (value) => setState(() {
+                        _servoClosedValue = value;
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    SwitchListTile(
+                      value: _automationEnabled,
+                      contentPadding: EdgeInsets.zero,
+                      activeColor: Colors.blue[700],
+                      title: const Text(
+                        'Automatic feeding and water refill',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Keep this off until the real sensors are calibrated.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                      onChanged: (value) {
+                        setState(() => _automationEnabled = value);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: _isTestingServo ? null : _testServo,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue[700],
+                          side: BorderSide(color: Colors.blue[300]!),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: _isTestingServo
+                            ? const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.play_arrow, size: 20),
+                        label: const Text(
+                          'Save & Test Servo',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               // Calibrate Sensor
               Container(
                 padding: const EdgeInsets.all(20),
@@ -459,6 +665,43 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildServoSlider({
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            Text(
+              '${value.round()} deg',
+              style: TextStyle(
+                color: Colors.blue[700],
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: 0,
+          max: 180,
+          divisions: 180,
+          activeColor: Colors.blue[600],
+          inactiveColor: Colors.blue[100],
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 }

@@ -137,6 +137,19 @@ class SettingsService {
   }
 
   // Device Settings
+  Future<Map<String, dynamic>> fetchDeviceSettings() async {
+    try {
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        '/profile/device-settings',
+      );
+      return response.data ?? {};
+    } on DioException catch (e) {
+      throw apiExceptionFromDio(e);
+    } catch (e) {
+      throw unexpectedApiException(e);
+    }
+  }
+
   Future<void> updateDeviceSettings(Map<String, dynamic> data) async {
     try {
       await _apiClient.dio.patch(
@@ -146,7 +159,55 @@ class SettingsService {
           'manual_feed_portion_grams': portionToGrams(
             data['manual_feed_portion_grams'] ?? data['manualPortionSize'],
           ),
+          if (data['servo_open_degrees'] != null)
+            'servo_open_degrees': intValue(data['servo_open_degrees'], null),
+          if (data['servo_closed_degrees'] != null)
+            'servo_closed_degrees': intValue(
+              data['servo_closed_degrees'],
+              null,
+            ),
+          if (data['automation_enabled'] != null)
+            'automation_enabled': data['automation_enabled'] == true,
         },
+      );
+    } on DioException catch (e) {
+      throw apiExceptionFromDio(e);
+    } catch (e) {
+      throw unexpectedApiException(e);
+    }
+  }
+
+  Future<void> testServo({String? deviceId}) async {
+    try {
+      final payload = <String, dynamic>{'action': 'servo_test'};
+      final trimmedDeviceId = deviceId?.trim() ?? '';
+      if (trimmedDeviceId.isNotEmpty) {
+        payload['device_id'] = trimmedDeviceId;
+      }
+      await _apiClient.dio.post('/control/manual', data: payload);
+    } on DioException catch (e) {
+      throw apiExceptionFromDio(e);
+    } catch (e) {
+      throw unexpectedApiException(e);
+    }
+  }
+
+  Future<void> configureDeviceWifi({
+    required String ssid,
+    required String password,
+  }) async {
+    try {
+      final dio = Dio(
+        BaseOptions(
+          baseUrl: 'http://192.168.4.1',
+          connectTimeout: const Duration(seconds: 8),
+          receiveTimeout: const Duration(seconds: 8),
+          headers: {'Content-Type': 'application/json'},
+        ),
+      );
+      await dio.post(
+        '/wifi',
+        data: {'ssid': ssid.trim(), 'password': password},
       );
     } on DioException catch (e) {
       throw apiExceptionFromDio(e);

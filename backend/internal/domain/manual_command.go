@@ -5,12 +5,13 @@ import "time"
 type CommandAction string
 
 const (
-	CommandActionFeed  CommandAction = "feed"
-	CommandActionDrink CommandAction = "drink"
+	CommandActionFeed      CommandAction = "feed"
+	CommandActionDrink     CommandAction = "drink"
+	CommandActionServoTest CommandAction = "servo_test"
 )
 
 func (a CommandAction) Valid() bool {
-	return a == CommandActionFeed || a == CommandActionDrink
+	return a == CommandActionFeed || a == CommandActionDrink || a == CommandActionServoTest
 }
 
 type CommandStatus string

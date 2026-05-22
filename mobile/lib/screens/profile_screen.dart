@@ -12,6 +12,7 @@ import '../widgets/profile_menu_item.dart';
 import 'device_settings_screen.dart';
 import 'notification_preferences_screen.dart';
 import 'pet_details_screen.dart';
+import 'wifi_setup_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
@@ -197,6 +198,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     builder: (context) => DeviceSettingsScreen(
                       settingsService: widget.settingsService,
                       initialDevice: device,
+                    ),
+                  ),
+                );
+                if (mounted) await _loadProfile();
+              },
+            ),
+            Divider(height: 1, color: Colors.grey.shade100, indent: 70),
+            ProfileMenuItem(
+              icon: Icons.wifi_tethering,
+              iconColor: const Color(0xFF0EA5E9),
+              iconBgColor: const Color(0xFFE0F2FE),
+              title: 'WiFi Setup',
+              subtitle: 'Connect feeder to a new network',
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => WifiSetupScreen(
+                      settingsService: widget.settingsService,
                     ),
                   ),
                 );

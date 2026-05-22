@@ -3,7 +3,6 @@ name: Build and Deploy
 on:
   push:
     branches: ["main"]
-    tags: ["v*"]
   pull_request:
     branches: ["main"]
   workflow_dispatch:
@@ -44,11 +43,6 @@ jobs:
         id: backend_changes
         shell: bash
         run: |
-          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             exit 0
@@ -75,7 +69,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=ref,event=tag
             type=sha,prefix=
 
       - name: Build and push Docker image
@@ -175,26 +168,13 @@ jobs:
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
-      - name: Prepare release metadata
-        if: github.event_name != 'pull_request'
+      - name: Prepare latest release asset
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: release
         shell: bash
         run: |
-          version="$(awk '/^version:/ {print $2; exit}' mobile/pubspec.yaml | cut -d+ -f1)"
-          if [ -z "$version" ]; then
-            echo "Cannot determine mobile version from mobile/pubspec.yaml"
-            exit 1
-          fi
-
-          short_sha="${GITHUB_SHA::7}"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            tag="$GITHUB_REF_NAME"
-            asset="smart-pet-feeder-android-${tag}.apk"
-          else
-            tag="v${version}"
-            asset="smart-pet-feeder-android-${tag}-${short_sha}.apk"
-          fi
-
+          tag="latest"
+          asset="smart-pet-feeder-android-latest.apk"
           cp mobile/build/app/outputs/flutter-apk/app-release.apk "$asset"
           {
             echo "tag=$tag"
@@ -202,8 +182,16 @@ jobs:
             echo "name=$tag"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Move latest release tag
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f latest "$GITHUB_SHA"
+          git push origin refs/tags/latest --force
+
       - name: Publish APK to GitHub Release
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.release.outputs.tag }}

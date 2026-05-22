@@ -21,6 +21,9 @@ type petDetailsRequest struct {
 type deviceSettingsRequest struct {
 	Name                   string  `json:"name"`
 	ManualFeedPortionGrams float64 `json:"manual_feed_portion_grams" binding:"gte=0"`
+	ServoOpenDegrees       *int    `json:"servo_open_degrees" binding:"omitempty,gte=0,lte=180"`
+	ServoClosedDegrees     *int    `json:"servo_closed_degrees" binding:"omitempty,gte=0,lte=180"`
+	AutomationEnabled      *bool   `json:"automation_enabled"`
 }
 
 type notificationPreferencesRequest struct {
@@ -134,7 +137,20 @@ func (h *Handler) updateProfileDeviceSettings(c *gin.Context) {
 	settings, err := h.profile.UpdateDeviceSettings(c.Request.Context(), ownerID, domain.DeviceSettingsInput{
 		Name:                   req.Name,
 		ManualFeedPortionGrams: req.ManualFeedPortionGrams,
+		ServoOpenDegrees:       req.ServoOpenDegrees,
+		ServoClosedDegrees:     req.ServoClosedDegrees,
+		AutomationEnabled:      req.AutomationEnabled,
 	})
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, deviceSettingsResponse(settings))
+}
+
+func (h *Handler) getDeviceConfig(c *gin.Context) {
+	settings, err := h.profile.GetDeviceConfig(c.Request.Context(), c.Param("deviceID"))
 	if err != nil {
 		respondUsecaseError(c, err)
 		return
@@ -253,12 +269,16 @@ func deviceSettingsResponse(settings domain.DeviceSettings) gin.H {
 		"id":                        settings.ID,
 		"name":                      settings.Name,
 		"manual_feed_portion_grams": settings.ManualFeedPortionGrams,
+		"servo_open_degrees":        settings.ServoOpenDegrees,
+		"servo_closed_degrees":      settings.ServoClosedDegrees,
+		"automation_enabled":        settings.AutomationEnabled,
 		"food_stock_percent":        settings.FoodStockPercent,
 		"water_available":           settings.WaterAvailable,
 		"water_status":              settings.WaterStatus,
 		"calibration_status":        settings.CalibrationStatus,
 		"calibration_requested_at":  calibrationRequestedAt,
 		"last_seen_at":              settings.LastSeenAt,
+		"config_updated_at":         settings.ConfigUpdatedAt,
 	}
 }
 

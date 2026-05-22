@@ -75,6 +75,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 
 	devices := v1.Group("/devices")
 	devices.Use(h.deviceAPIKeyMiddleware())
+	devices.GET("/:deviceID/config", h.getDeviceConfig)
 	devices.GET("/:deviceID/commands/next", h.getNextDeviceCommand)
 	devices.PATCH("/:deviceID/commands/:commandID/status", h.updateDeviceCommandStatus)
 

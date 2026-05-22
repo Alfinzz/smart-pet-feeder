@@ -10,6 +10,7 @@ mobile/.env
 backend/tmp/
 backend/.gocache/
 backend/uploads/
+arduino/**/.build/
 .idea/
 .vscode/
 *.swp

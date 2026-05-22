@@ -13,6 +13,7 @@ type ProfileRepository interface {
 	CalibrateDevice(ctx context.Context, ownerID int64) (domain.DeviceSettings, error)
 	CreatePetDetails(ctx context.Context, ownerID int64, input domain.PetDetailsInput) (domain.PetDetails, error)
 	DeletePetDetails(ctx context.Context, ownerID int64) error
+	GetDeviceConfig(ctx context.Context, deviceID string) (domain.DeviceSettings, error)
 	GetDeviceSettings(ctx context.Context, ownerID int64) (domain.DeviceSettings, error)
 	GetNotificationPreferences(ctx context.Context, ownerID int64) (domain.NotificationPreferences, error)
 	GetPetDetails(ctx context.Context, ownerID int64) (domain.PetDetails, error)
@@ -70,12 +71,29 @@ func (u *ProfileUsecase) GetDeviceSettings(ctx context.Context, ownerID int64) (
 	return u.repo.GetDeviceSettings(ctx, ownerID)
 }
 
+func (u *ProfileUsecase) GetDeviceConfig(ctx context.Context, deviceID string) (domain.DeviceSettings, error) {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return domain.DeviceSettings{}, fmt.Errorf("%w: device_id is required", domain.ErrValidation)
+	}
+	return u.repo.GetDeviceConfig(ctx, deviceID)
+}
+
 func (u *ProfileUsecase) UpdateDeviceSettings(ctx context.Context, ownerID int64, input domain.DeviceSettingsInput) (domain.DeviceSettings, error) {
 	input.Name = strings.TrimSpace(input.Name)
 	if input.ManualFeedPortionGrams < 0 {
 		return domain.DeviceSettings{}, fmt.Errorf("%w: manual_feed_portion_grams must be greater than or equal to 0", domain.ErrValidation)
 	}
-	if input.Name == "" && input.ManualFeedPortionGrams == 0 {
+	if input.ServoOpenDegrees != nil && (*input.ServoOpenDegrees < 0 || *input.ServoOpenDegrees > 180) {
+		return domain.DeviceSettings{}, fmt.Errorf("%w: servo_open_degrees must be between 0 and 180", domain.ErrValidation)
+	}
+	if input.ServoClosedDegrees != nil && (*input.ServoClosedDegrees < 0 || *input.ServoClosedDegrees > 180) {
+		return domain.DeviceSettings{}, fmt.Errorf("%w: servo_closed_degrees must be between 0 and 180", domain.ErrValidation)
+	}
+	if input.ServoOpenDegrees != nil && input.ServoClosedDegrees != nil && *input.ServoOpenDegrees == *input.ServoClosedDegrees {
+		return domain.DeviceSettings{}, fmt.Errorf("%w: servo open and closed degrees must be different", domain.ErrValidation)
+	}
+	if input.Name == "" && input.ManualFeedPortionGrams == 0 && input.ServoOpenDegrees == nil && input.ServoClosedDegrees == nil && input.AutomationEnabled == nil {
 		return domain.DeviceSettings{}, fmt.Errorf("%w: at least one device setting is required", domain.ErrValidation)
 	}
 	return u.repo.UpdateDeviceSettings(ctx, ownerID, input)
