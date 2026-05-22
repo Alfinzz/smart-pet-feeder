@@ -20,15 +20,12 @@
 #include <ArduinoJson.h>
 #include <ESP32Servo.h>
 #include <HX711.h>
+#include <Preferences.h>
+#include "arduino_secrets.h"
 
-// ===================== KONFIGURASI WiFi =====================
-const char* WIFI_SSID     = "NAMA_WIFI_KAMU";
-const char* WIFI_PASSWORD = "PASSWORD_WIFI_KAMU";
-
-// ===================== KONFIGURASI BACKEND =====================
-const char* BACKEND_URL    = "https://smart-pet-feeder.alfian-gading.my.id";
-const char* DEVICE_API_KEY = "fY-XGzWSxyPe4a9IpMtWT5H1Ddb0tdpcuRkcirkuqa8";
-const char* DEVICE_ID      = "ESP32-001";
+#ifndef RELAY_ACTIVE_LOW
+#define RELAY_ACTIVE_LOW true
+#endif
 
 // ===================== PIN DEFINITION =====================
 #define SERVO_PIN        18
@@ -65,6 +62,7 @@ const unsigned long JEDA_OTOMATIS      = 60000;   // cooldown 1 menit
 Servo   servoPakan;
 HX711   scalePakan;
 HX711   scaleMinum;
+Preferences preferences;
 
 unsigned long lastPrint     = 0;
 unsigned long lastKirimData = 0;
@@ -72,6 +70,7 @@ unsigned long lastPolling   = 0;
 
 unsigned long waktuTerakhirPakan = 0;
 unsigned long waktuTerakhirAir   = 0;
+long lastCompletedCommandID = 0;
 
 // ===================== SETUP =====================
 void setup() {
@@ -79,6 +78,11 @@ void setup() {
   delay(500);
   Serial.println();
   Serial.println(F("========================================"));
+
+  preferences.begin("cmd", false);
+  lastCompletedCommandID = preferences.getLong("last_ok", 0);
+  Serial.print(F("[INIT] Last completed command ID: "));
+  Serial.println(lastCompletedCommandID);
   Serial.println(F("   SMART PET FEEDER — FULL OTOMATIS     "));
   Serial.println(F("   + Koneksi Backend                    "));
   Serial.println(F("========================================"));
@@ -89,7 +93,8 @@ void setup() {
   Serial.println(F("[INIT] Servo Pakan  → GPIO 18 (TUTUP: 55°)"));
 
   // Inisialisasi Relay (Pompa)
-  pinMode(RELAY_PIN, INPUT);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? HIGH : LOW);
   Serial.println(F("[INIT] Relay Pompa  → GPIO 23 (MATI)"));
 
   // Inisialisasi Ultrasonik
@@ -119,6 +124,21 @@ void setup() {
   Serial.println();
   Serial.println(F("[READY] Sistem siap & Berjalan."));
   Serial.println(F("========================================"));
+}
+
+void simpanCommandSelesai(long commandID) {
+  if (commandID > lastCompletedCommandID) {
+    lastCompletedCommandID = commandID;
+    preferences.putLong("last_ok", lastCompletedCommandID);
+  }
+}
+
+void nyalakanPompa() {
+  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? LOW : HIGH);
+}
+
+void matikanPompa() {
+  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? HIGH : LOW);
 }
 
 // ===================== KONEKSI WiFi =====================
@@ -192,50 +212,77 @@ float bacaBeratMinum() {
 }
 
 // ===================== FUNGSI AKTUATOR =====================
-void bukaPakan() {
+bool bukaPakan(String& errorMessage) {
   Serial.println(F("\n[ACT] MEMBERI PAKAN — MULAI"));
   float beratAwal = bacaBeratPakan();
-  if (beratAwal < 0) return;
+  if (beratAwal < 0) {
+    errorMessage = "load cell pakan tidak siap";
+    Serial.println(F("[FAIL] Load cell pakan tidak siap."));
+    return false;
+  }
   float beratTarget = beratAwal + PORSI_PAKAN_GRAM;
 
   servoPakan.write(0);
   Serial.println(F("[ACT] Servo BUKA (0°) — pakan mengalir..."));
 
+  bool targetTercapai = false;
   unsigned long mulai = millis();
   while (millis() - mulai < TIMEOUT_BUKA_PAKAN) {
     float beratSekarang = bacaBeratPakan();
-    if (beratSekarang >= 0 && beratSekarang >= beratTarget) break;
+    if (beratSekarang >= 0 && beratSekarang >= beratTarget) {
+      targetTercapai = true;
+      break;
+    }
     delay(200);
   }
 
   servoPakan.write(55);
   Serial.println(F("[ACT] Servo TUTUP (55°)"));
+  if (!targetTercapai) {
+    errorMessage = "target porsi pakan tidak tercapai";
+    Serial.println(F("[FAIL] Target porsi pakan tidak tercapai."));
+    return false;
+  }
   Serial.println(F("[DONE] Pengisian pakan selesai.\n"));
+  return true;
 }
 
-void isiAir() {
+bool isiAir(String& errorMessage) {
   Serial.println(F("\n[ACT] MENGISI AIR — MULAI"));
   float beratAwal = bacaBeratMinum();
-  if (beratAwal < 0) return;
+  if (beratAwal < 0) {
+    errorMessage = "load cell minum tidak siap";
+    Serial.println(F("[FAIL] Load cell minum tidak siap."));
+    return false;
+  }
   if (beratAwal >= TARGET_AIR_GRAM) {
     Serial.println(F("[SKIP] Air sudah penuh."));
-    return;
+    return true;
   }
 
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, LOW);
+  nyalakanPompa();
   Serial.println(F("[ACT] Pompa NYALA — mengisi air..."));
 
+  bool targetTercapai = false;
   unsigned long mulai = millis();
   while (millis() - mulai < TIMEOUT_ISI_AIR) {
     float beratSekarang = bacaBeratMinum();
-    if (beratSekarang >= 0 && beratSekarang >= TARGET_AIR_GRAM) break;
+    if (beratSekarang >= 0 && beratSekarang >= TARGET_AIR_GRAM) {
+      targetTercapai = true;
+      break;
+    }
     delay(200);
   }
 
-  pinMode(RELAY_PIN, INPUT);
+  matikanPompa();
   Serial.println(F("[ACT] Pompa MATI"));
+  if (!targetTercapai) {
+    errorMessage = "target air tidak tercapai";
+    Serial.println(F("[FAIL] Target air tidak tercapai."));
+    return false;
+  }
   Serial.println(F("[DONE] Pengisian air selesai.\n"));
+  return true;
 }
 
 void cetakErrorHTTP(const __FlashStringHelper* prefix, int statusCode, HTTPClient& http) {
@@ -280,7 +327,7 @@ void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
   String statusAir  = airTersedia ? "available" : "low";
 
   // Build JSON body
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<768> doc;
   doc["device_id"]    = DEVICE_ID;
   doc["weight_grams"] = (beratPakan >= 0) ? beratPakan : 0.0;
   if (stokPersen >= 0) {
@@ -328,7 +375,7 @@ void pollingPerintah() {
   String respBody = http.getString();
   http.end();
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<768> doc;
   DeserializationError err = deserializeJson(doc, respBody);
   if (err) {
     Serial.println(F("[CMD] JSON parse error"));
@@ -358,21 +405,37 @@ void pollingPerintah() {
 
   // Eksekusi perintah
   bool berhasil = false;
+  String errorMessage = "";
   if (action == "feed") {
-    bukaPakan();
-    waktuTerakhirPakan = millis();
-    berhasil = true;
+    if (commandID == lastCompletedCommandID) {
+      Serial.println(F("[CMD] Command sudah pernah selesai, kirim ulang status saja."));
+      berhasil = true;
+    } else {
+      berhasil = bukaPakan(errorMessage);
+      if (berhasil) {
+        waktuTerakhirPakan = millis();
+        simpanCommandSelesai(commandID);
+      }
+    }
   } else if (action == "drink") {
-    isiAir();
-    waktuTerakhirAir = millis();
-    berhasil = true;
+    if (commandID == lastCompletedCommandID) {
+      Serial.println(F("[CMD] Command sudah pernah selesai, kirim ulang status saja."));
+      berhasil = true;
+    } else {
+      berhasil = isiAir(errorMessage);
+      if (berhasil) {
+        waktuTerakhirAir = millis();
+        simpanCommandSelesai(commandID);
+      }
+    }
   } else {
     Serial.print(F("[CMD] Aksi tidak dikenal: "));
     Serial.println(action);
+    errorMessage = "aksi tidak dikenal";
   }
 
   // Laporkan status ke backend
-  laporkanHasilPerintah(commandID, berhasil);
+  laporkanHasilPerintah(commandID, berhasil, errorMessage);
 }
 
 // ===================== LAPOR HASIL PERINTAH =====================
@@ -381,7 +444,7 @@ void pollingPerintah() {
  * Header: X-Device-Key: <key>
  * Body: { "status": "completed" }  atau  { "status": "failed" }
  */
-void laporkanHasilPerintah(long commandID, bool berhasil) {
+void laporkanHasilPerintah(long commandID, bool berhasil, const String& errorMessage) {
   if (WiFi.status() != WL_CONNECTED) return;
 
   WiFiClientSecure client;
@@ -393,8 +456,11 @@ void laporkanHasilPerintah(long commandID, bool berhasil) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
 
-  StaticJsonDocument<64> doc;
+  StaticJsonDocument<192> doc;
   doc["status"] = berhasil ? "completed" : "failed";
+  if (!berhasil && errorMessage.length() > 0) {
+    doc["error"] = errorMessage;
+  }
   String body;
   serializeJson(doc, body);
 
@@ -423,14 +489,17 @@ void loop() {
   // ── Kontrol Manual via Serial Monitor ──────────────────────────────────
   if (Serial.available() > 0) {
     char cmd = Serial.read();
+    String errorMessage = "";
     switch (cmd) {
       case 'P': case 'p':
-        bukaPakan();
-        waktuTerakhirPakan = millis();
+        if (bukaPakan(errorMessage)) {
+          waktuTerakhirPakan = millis();
+        }
         break;
       case 'A': case 'a':
-        isiAir();
-        waktuTerakhirAir = millis();
+        if (isiAir(errorMessage)) {
+          waktuTerakhirAir = millis();
+        }
         break;
       case 'T': case 't':
         scalePakan.tare();
@@ -443,6 +512,13 @@ void loop() {
     }
   }
 
+  // ── Polling Perintah dari Backend diprioritaskan sebelum otomatisasi ──
+  if (millis() - lastPolling >= INTERVAL_POLLING) {
+    lastPolling = millis();
+    pastikanWiFi();
+    pollingPerintah();
+  }
+
   // ── Baca Sensor ────────────────────────────────────────────────────────
   float beratPakan = bacaBeratPakan();
   float beratMinum = bacaBeratMinum();
@@ -451,8 +527,10 @@ void loop() {
   if (beratPakan >= 0 && beratPakan <= BATAS_MINIMAL_PAKAN) {
     if (millis() - waktuTerakhirPakan >= JEDA_OTOMATIS) {
       Serial.println(F("[AUTO] Mangkok pakan kosong!"));
-      bukaPakan();
-      waktuTerakhirPakan = millis();
+      String errorMessage = "";
+      if (bukaPakan(errorMessage)) {
+        waktuTerakhirPakan = millis();
+      }
     }
   }
 
@@ -460,8 +538,10 @@ void loop() {
   if (beratMinum >= 0 && beratMinum <= BATAS_MINIMAL_AIR) {
     if (millis() - waktuTerakhirAir >= JEDA_OTOMATIS) {
       Serial.println(F("[AUTO] Mangkok air kosong!"));
-      isiAir();
-      waktuTerakhirAir = millis();
+      String errorMessage = "";
+      if (isiAir(errorMessage)) {
+        waktuTerakhirAir = millis();
+      }
     }
   }
 
@@ -471,12 +551,6 @@ void loop() {
     pastikanWiFi();
     float stokPersen = hitungPersentaseStok();
     kirimDataSensor(beratPakan, beratMinum, stokPersen);
-  }
-
-  // ── Polling Perintah dari Backend (setiap INTERVAL_POLLING ms) ──────────
-  if (millis() - lastPolling >= INTERVAL_POLLING) {
-    lastPolling = millis();
-    pollingPerintah();
   }
 
   // ── Cetak Log Serial (setiap INTERVAL_CETAK ms) ─────────────────────────

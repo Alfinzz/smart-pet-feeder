@@ -12,12 +12,13 @@ import (
 )
 
 type createManualCommandRequest struct {
-	DeviceID string `json:"device_id" binding:"required"`
+	DeviceID string `json:"device_id"`
 	Action   string `json:"action" binding:"required,oneof=feed drink"`
 }
 
 type updateCommandStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=completed failed"`
+	Error  string `json:"error"`
 }
 
 func (h *Handler) createManualCommand(c *gin.Context) {
@@ -29,7 +30,7 @@ func (h *Handler) createManualCommand(c *gin.Context) {
 
 	var req createManualCommandRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "device_id and action feed or drink are required")
+		respondError(c, http.StatusBadRequest, "action feed or drink is required")
 		return
 	}
 
@@ -44,6 +45,28 @@ func (h *Handler) createManualCommand(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, manualCommandResponse(command))
+}
+
+func (h *Handler) getManualCommand(c *gin.Context) {
+	ownerID, ok := ownerIDFromContext(c)
+	if !ok {
+		respondUsecaseError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	commandID, err := strconv.ParseInt(c.Param("commandID"), 10, 64)
+	if err != nil || commandID <= 0 {
+		respondError(c, http.StatusBadRequest, "command_id must be a positive integer")
+		return
+	}
+
+	command, err := h.control.GetManualCommand(c.Request.Context(), ownerID, commandID)
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, manualCommandResponse(command))
 }
 
 func (h *Handler) getNextDeviceCommand(c *gin.Context) {
@@ -77,6 +100,7 @@ func (h *Handler) updateDeviceCommandStatus(c *gin.Context) {
 		DeviceID:  c.Param("deviceID"),
 		CommandID: commandID,
 		Status:    domain.CommandStatus(req.Status),
+		LastError: req.Error,
 	})
 	if err != nil {
 		respondUsecaseError(c, err)
@@ -88,11 +112,15 @@ func (h *Handler) updateDeviceCommandStatus(c *gin.Context) {
 
 func manualCommandResponse(command domain.ManualCommand) gin.H {
 	return gin.H{
-		"id":         command.ID,
-		"owner_id":   command.OwnerID,
-		"device_id":  command.DeviceID,
-		"action":     command.Action,
-		"status":     command.Status,
-		"created_at": command.CreatedAt,
+		"id":            command.ID,
+		"owner_id":      command.OwnerID,
+		"device_id":     command.DeviceID,
+		"action":        command.Action,
+		"status":        command.Status,
+		"attempt_count": command.AttemptCount,
+		"last_error":    command.LastError,
+		"created_at":    command.CreatedAt,
+		"updated_at":    command.UpdatedAt,
+		"completed_at":  command.CompletedAt,
 	}
 }

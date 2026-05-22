@@ -31,6 +31,8 @@ psql -U postgres -d smart_pet_monitoring -f migrations/001_init.sql
 psql -U postgres -d smart_pet_monitoring -f migrations/002_dashboard_design.sql
 psql -U postgres -d smart_pet_monitoring -f migrations/003_health_profile.sql
 psql -U postgres -d smart_pet_monitoring -f migrations/004_normalize_device_id.sql
+psql -U postgres -d smart_pet_monitoring -f migrations/005_pet_photo.sql
+psql -U postgres -d smart_pet_monitoring -f migrations/006_manual_command_delivery.sql
 ```
 
 3. Copy `.env.example` to `.env` and adjust credentials/secrets.
@@ -69,6 +71,7 @@ Owner API, secured with `Authorization: Bearer <token>`:
 - `GET /api/v1/feed/history?limit=50`
 - `GET /api/v1/feed/weekly-consumption?days=7`
 - `POST /api/v1/control/manual`
+- `GET /api/v1/control/manual/{command_id}`
 - `GET /api/v1/health/summary`
 - `GET /api/v1/health/overview?days=7`
 - `POST /api/v1/health/vitals`

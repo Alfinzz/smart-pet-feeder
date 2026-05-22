@@ -87,6 +87,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 	protected.GET("/feed/history", h.getFeedHistory)
 	protected.GET("/feed/weekly-consumption", h.getWeeklyConsumption)
 	protected.POST("/control/manual", h.createManualCommand)
+	protected.GET("/control/manual/:commandID", h.getManualCommand)
 	protected.GET("/health/summary", h.getHealthSummary)
 	protected.GET("/health/overview", h.getHealthOverview)
 	protected.POST("/health/vitals", h.updateVitalSigns)

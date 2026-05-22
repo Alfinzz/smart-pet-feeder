@@ -27,10 +27,14 @@ func (s CommandStatus) ValidDeviceUpdate() bool {
 }
 
 type ManualCommand struct {
-	ID        int64
-	OwnerID   int64
-	DeviceID  string
-	Action    CommandAction
-	Status    CommandStatus
-	CreatedAt time.Time
+	ID           int64
+	OwnerID      int64
+	DeviceID     string
+	Action       CommandAction
+	Status       CommandStatus
+	AttemptCount int
+	LastError    string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	CompletedAt  *time.Time
 }

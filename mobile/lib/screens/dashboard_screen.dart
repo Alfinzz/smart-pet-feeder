@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../models/dashboard_models.dart';
 import '../models/feed_history_item.dart';
+import '../models/manual_command.dart';
 import '../services/control_service.dart';
 import '../services/dashboard_service.dart';
 import '../services/feed_service.dart';
@@ -77,20 +80,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() => _busyAction = action);
     try {
-      await widget.controlService.sendManualCommand(action: action);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            action == 'feed' ? 'Feeding command sent!' : 'Refill command sent!',
-          ),
-          backgroundColor: const Color(0xFF1565C0),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+      final command = await widget.controlService.sendManualCommand(
+        action: action,
+        deviceId: _overview?.device.id,
       );
+      if (!mounted) return;
+      _showCommandSnackBar(command, isPending: true);
+      final finalCommand = await _waitForCommandResult(command);
+      if (!mounted) return;
+      _showCommandSnackBar(finalCommand);
       await _loadDashboard();
     } catch (_) {
       if (!mounted) return;
@@ -107,6 +105,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } finally {
       if (mounted) setState(() => _busyAction = null);
     }
+  }
+
+  Future<ManualCommand> _waitForCommandResult(ManualCommand command) async {
+    var current = command;
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
+
+    while (!current.isTerminal && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      current = await widget.controlService.fetchManualCommand(command.id);
+    }
+
+    return current;
+  }
+
+  void _showCommandSnackBar(ManualCommand command, {bool isPending = false}) {
+    final isFeed = command.action == 'feed';
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+
+    var message = isFeed
+        ? 'Feeding command is waiting for the feeder.'
+        : 'Water refill command is waiting for the feeder.';
+    var color = const Color(0xFF1565C0);
+
+    if (!isPending) {
+      if (command.status == 'completed') {
+        message = isFeed ? 'Feeding completed.' : 'Water refill completed.';
+        color = Colors.green.shade600;
+      } else if (command.status == 'failed') {
+        message = command.lastError.isEmpty
+            ? 'Command failed on the feeder.'
+            : 'Command failed: ${command.lastError}';
+        color = Colors.red.shade400;
+      } else {
+        message = 'Still waiting for feeder confirmation.';
+        color = Colors.orange.shade700;
+      }
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 
   String _messageFromDio(DioException error) {
