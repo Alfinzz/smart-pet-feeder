@@ -23,12 +23,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -38,7 +38,7 @@ jobs:
         run: go test ./...
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Detect backend changes
         id: backend_changes
@@ -62,7 +62,7 @@ jobs:
 
       - name: Log in to Container Registry
         if: github.event_name != 'pull_request' && steps.backend_changes.outputs.changed == 'true'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -80,7 +80,7 @@ jobs:
 
       - name: Build and push Docker image
         if: steps.backend_changes.outputs.changed == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: backend
           file: backend/Dockerfile
@@ -122,7 +122,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -169,19 +169,52 @@ jobs:
             --dart-define=DEVICE_ID="$DEVICE_ID"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: smart-pet-feeder-android
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
 
-      - name: Prepare release APK asset
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        run: cp mobile/build/app/outputs/flutter-apk/app-release.apk "smart-pet-feeder-android-${GITHUB_REF_NAME}.apk"
+      - name: Prepare release metadata
+        if: github.event_name != 'pull_request'
+        id: release
+        shell: bash
+        run: |
+          version="$(awk '/^version:/ {print $2; exit}' mobile/pubspec.yaml | cut -d+ -f1)"
+          if [ -z "$version" ]; then
+            echo "Cannot determine mobile version from mobile/pubspec.yaml"
+            exit 1
+          fi
+
+          short_sha="${GITHUB_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+            asset="smart-pet-feeder-android-${tag}.apk"
+          else
+            tag="v${version}"
+            asset="smart-pet-feeder-android-${tag}-${short_sha}.apk"
+          fi
+
+          cp mobile/build/app/outputs/flutter-apk/app-release.apk "$asset"
+          {
+            echo "tag=$tag"
+            echo "asset=$asset"
+            echo "name=$tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Publish APK to GitHub Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v3
         with:
-          files: smart-pet-feeder-android-${{ github.ref_name }}.apk
+          tag_name: ${{ steps.release.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.release.outputs.name }}
+          body: |
+            Automated APK build from `${{ github.sha }}`.
+
+            Event: `${{ github.event_name }}`
+            Branch/tag: `${{ github.ref_name }}`
+          files: ${{ steps.release.outputs.asset }}
           fail_on_unmatched_files: true
+          overwrite_files: true
+          make_latest: true
