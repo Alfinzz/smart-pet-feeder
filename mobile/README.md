@@ -19,9 +19,11 @@ flutter run
 Physical device on the same Wi-Fi network:
 
 ```powershell
-$env:API_BASE_URL="http://<backend-ip>:8080/api/v1"
+$env:API_BASE_URL="http://103.47.224.190:8001/api/v1"
 $env:DEVICE_ID="ESP32-001"
 flutter run --dart-define=API_BASE_URL="$env:API_BASE_URL" --dart-define=DEVICE_ID="$env:DEVICE_ID"
 ```
 
 The app stores the JWT in `flutter_secure_storage` and attaches it to API requests through a Dio interceptor.
+
+The Android app currently permits cleartext HTTP traffic because the feeder backend is intentionally served over `http://103.47.224.190:8001`.

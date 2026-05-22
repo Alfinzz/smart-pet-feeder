@@ -10,10 +10,10 @@ void main() {
       );
     });
 
-    test('converts backend upload paths to production absolute URLs', () {
+    test('converts backend upload paths to configured absolute URLs', () {
       expect(
         AppConfig.publicUrl('/uploads/pets/pet.jpg'),
-        'https://smart-pet-feeder.alfian-gading.my.id/uploads/pets/pet.jpg',
+        'http://103.47.224.190:8001/uploads/pets/pet.jpg',
       );
     });
   });

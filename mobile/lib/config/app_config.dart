@@ -3,7 +3,7 @@ class AppConfig {
 
   static const apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://smart-pet-feeder.alfian-gading.my.id/api/v1',
+    defaultValue: 'http://103.47.224.190:8001/api/v1',
   );
 
   static const deviceId = String.fromEnvironment(
