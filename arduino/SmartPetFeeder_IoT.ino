@@ -21,11 +21,18 @@
 #include <ESP32Servo.h>
 #include <HX711.h>
 #include <Preferences.h>
-#include "arduino_secrets.h"
 
-#ifndef RELAY_ACTIVE_LOW
-#define RELAY_ACTIVE_LOW true
-#endif
+// ===================== KONFIGURASI WiFi =====================
+const char* WIFI_SSID     = "Finzz";
+const char* WIFI_PASSWORD = "veteranpride";
+
+// ===================== KONFIGURASI BACKEND =====================
+const char* BACKEND_URL    = "https://smart-pet-feeder.alfian-gading.my.id";
+const char* DEVICE_API_KEY = "fY-XGzWSxyPe4a9IpMtWT5H1Ddb0tdpcuRkcirkuqa8";
+const char* DEVICE_ID      = "ESP32-001";
+
+// Kebanyakan relay module aktif saat pin LOW. Ubah ke false jika relay aktif saat HIGH.
+const bool RELAY_ACTIVE_LOW = true;
 
 // ===================== PIN DEFINITION =====================
 #define SERVO_PIN        18
