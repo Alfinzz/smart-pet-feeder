@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_settings/app_settings.dart';
 
 import '../services/settings_service.dart';
 
@@ -74,7 +75,12 @@ class _WifiSetupScreenState extends State<WifiSetupScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          40 + MediaQuery.of(context).padding.bottom,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -105,8 +111,29 @@ class _WifiSetupScreenState extends State<WifiSetupScreen> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey[700], fontSize: 13),
                     ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () => AppSettings.openAppSettings(
+                        type: AppSettingsType.wifi,
+                      ),
+                      icon: const Icon(Icons.settings, size: 18),
+                      label: const Text('Open WiFi Settings'),
+                    ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 24),
+              _buildInstructionStep(
+                1,
+                'Turn on the feeder and wait for setup mode.',
+              ),
+              _buildInstructionStep(
+                2,
+                'Connect this phone to SmartPetFeeder-ESP32-001.',
+              ),
+              _buildInstructionStep(
+                3,
+                'Return here, enter your home WiFi, then send it to the feeder.',
               ),
               const SizedBox(height: 24),
               TextFormField(
@@ -167,6 +194,43 @@ class _WifiSetupScreenState extends State<WifiSetupScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInstructionStep(int number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.blue[700],
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              '$number',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                text,
+                style: TextStyle(color: Colors.grey[800], fontSize: 14),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -17,6 +17,7 @@ dependencies:
   fl_chart: ^1.2.0
   google_fonts: ^6.1.0
   image_picker: ^1.1.2
+  app_settings: ^7.0.0
 
 dev_dependencies:
   flutter_test:

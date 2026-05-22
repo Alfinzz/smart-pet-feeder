@@ -63,7 +63,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: RefreshIndicator(
         onRefresh: _loadProfile,
         child: ListView(
-          padding: EdgeInsets.zero,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 40),
           children: [
             const AppHeader(),
             const SizedBox(height: 20),

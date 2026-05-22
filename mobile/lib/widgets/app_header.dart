@@ -34,20 +34,13 @@ class AppHeader extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          // Notification bell
           Container(
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: const Icon(
               Icons.notifications_outlined,

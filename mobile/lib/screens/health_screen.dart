@@ -67,7 +67,7 @@ class _HealthScreenState extends State<HealthScreen> {
       child: RefreshIndicator(
         onRefresh: _loadHealth,
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(bottom: 36),
           children: [
             const AppHeader(),
             const SizedBox(height: 16),
@@ -76,6 +76,8 @@ class _HealthScreenState extends State<HealthScreen> {
                 padding: EdgeInsets.all(40),
                 child: Center(child: CircularProgressIndicator()),
               )
+            else if (_summary == null)
+              _buildEmptyHealth()
             else ...[
               _buildHealthScore(context),
               const SizedBox(height: 28),
@@ -274,21 +276,12 @@ class _HealthScreenState extends State<HealthScreen> {
                   color: Color(0xFF1E293B),
                 ),
               ),
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Daftar lengkap tugas belum tersedia.'),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF5B7FFF),
-                  ),
+              Text(
+                '${tasks.length} tasks',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
                 ),
               ),
             ],
@@ -316,6 +309,61 @@ class _HealthScreenState extends State<HealthScreen> {
               );
             }),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyHealth() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 32, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                Icons.monitor_heart_outlined,
+                color: Colors.green.shade700,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'No health data yet',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF1E293B),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Log weight, activity, and sleep to start tracking health trends.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => _showLogVitalsBottomSheet(context),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Log Vitals'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

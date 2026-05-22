@@ -1,9 +1,0 @@
-{
-  "additionalFiles": "../..",
-  "compiler.optimization_flags": "-Os",
-  "customBuildProperties": "",
-  "fqbn": "esp32:esp32:esp32doit-devkit-v1",
-  "hardwareFolders": "/home/alfiang/.arduino15/packages/esp32/hardware/esp32/3.3.8,/home/alfiang/.arduino15/packages/esp32/hardware/esp32/3.3.8",
-  "otherLibrariesFolders": "/home/alfiang/Arduino/libraries",
-  "sketchLocation": "/home/alfiang/Projects/smart-pet-feeder/arduino/SmartPetFeeder_IoT"
-}

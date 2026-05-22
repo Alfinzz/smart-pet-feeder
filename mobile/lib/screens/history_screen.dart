@@ -62,7 +62,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: RefreshIndicator(
         onRefresh: _loadHistory,
         child: ListView(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.only(bottom: 36),
           children: [
             const AppHeader(),
             const SizedBox(height: 8),
@@ -317,21 +317,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   color: Color(0xFF1E293B),
                 ),
               ),
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Semua log terbaru sudah ditampilkan.'),
-                    ),
-                  );
-                },
-                child: const Text(
-                  'View All',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF5B7FFF),
-                  ),
+              Text(
+                '${_history.length} logs',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF64748B),
                 ),
               ),
             ],
@@ -343,7 +334,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: CircularProgressIndicator(),
             )
           else if (_history.isEmpty)
-            ..._buildDemoLogs()
+            _buildEmptyLogs()
           else
             ..._history
                 .take(4)
@@ -361,37 +352,43 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  List<Widget> _buildDemoLogs() {
-    return [
-      _buildLogItem(
-        icon: Icons.wb_sunny_outlined,
-        color: const Color(0xFF1565C0),
-        title: 'Morning Feed',
-        subtitle: 'Today, 08:00 AM',
-        amount: '50 grams',
+  Widget _buildEmptyLogs() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      _buildLogItem(
-        icon: Icons.nightlight_outlined,
-        color: const Color(0xFF7C3AED),
-        title: 'Evening Feed',
-        subtitle: 'Yesterday, 06:30 PM',
-        amount: '45 grams',
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.history_rounded, color: Color(0xFF1565C0)),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'No feed logs yet',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1E293B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Completed feeder updates will appear here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
       ),
-      _buildLogItem(
-        icon: Icons.cookie_outlined,
-        color: const Color(0xFF10B981),
-        title: 'Manual Snack',
-        subtitle: 'Yesterday, 02:15 PM',
-        amount: '15 grams',
-      ),
-      _buildLogItem(
-        icon: Icons.wb_sunny_outlined,
-        color: const Color(0xFF1565C0),
-        title: 'Morning Feed',
-        subtitle: 'Yesterday, 08:00 AM',
-        amount: '50 grams',
-      ),
-    ];
+    );
   }
 
   Widget _buildLogItem({

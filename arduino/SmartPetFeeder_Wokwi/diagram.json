@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "author": "Smart Pet Feeder",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-servo", "id": "servoPakan", "top": -88, "left": 250, "attrs": {} },
+    { "type": "wokwi-relay-module", "id": "relayPompa", "top": 80, "left": 260, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonik", "top": -140, "left": -230, "attrs": {} },
+    { "type": "wokwi-hx711", "id": "hxPakan", "top": 160, "left": -250, "attrs": {} },
+    { "type": "wokwi-hx711", "id": "hxMinum", "top": 292, "left": -250, "attrs": {} },
+    { "type": "wokwi-led", "id": "ledPompa", "top": 210, "left": 330, "attrs": { "color": "blue" } },
+    { "type": "wokwi-resistor", "id": "rPompa", "top": 252, "left": 296, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+
+    [ "esp:5V", "servoPakan:V+", "red", [] ],
+    [ "esp:GND.1", "servoPakan:GND", "black", [] ],
+    [ "esp:D18", "servoPakan:PWM", "orange", [] ],
+
+    [ "esp:5V", "relayPompa:VCC", "red", [] ],
+    [ "esp:GND.1", "relayPompa:GND", "black", [] ],
+    [ "esp:D23", "relayPompa:IN", "green", [] ],
+    [ "relayPompa:COM", "ledPompa:A", "blue", [] ],
+    [ "relayPompa:NO", "esp:5V", "red", [] ],
+    [ "ledPompa:C", "rPompa:1", "blue", [] ],
+    [ "rPompa:2", "esp:GND.1", "black", [] ],
+
+    [ "esp:5V", "ultrasonik:VCC", "red", [] ],
+    [ "esp:GND.1", "ultrasonik:GND", "black", [] ],
+    [ "esp:D26", "ultrasonik:TRIG", "green", [] ],
+    [ "esp:D27", "ultrasonik:ECHO", "green", [] ],
+
+    [ "esp:3V3", "hxPakan:VCC", "red", [] ],
+    [ "esp:GND.1", "hxPakan:GND", "black", [] ],
+    [ "esp:D13", "hxPakan:DT", "green", [] ],
+    [ "esp:D14", "hxPakan:SCK", "green", [] ],
+
+    [ "esp:3V3", "hxMinum:VCC", "red", [] ],
+    [ "esp:GND.1", "hxMinum:GND", "black", [] ],
+    [ "esp:D4", "hxMinum:DT", "green", [] ],
+    [ "esp:D16", "hxMinum:SCK", "green", [] ]
+  ],
+  "dependencies": {}
+}

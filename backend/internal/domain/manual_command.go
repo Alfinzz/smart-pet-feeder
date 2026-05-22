@@ -8,10 +8,14 @@ const (
 	CommandActionFeed      CommandAction = "feed"
 	CommandActionDrink     CommandAction = "drink"
 	CommandActionServoTest CommandAction = "servo_test"
+	CommandActionTare      CommandAction = "tare"
 )
 
 func (a CommandAction) Valid() bool {
-	return a == CommandActionFeed || a == CommandActionDrink || a == CommandActionServoTest
+	return a == CommandActionFeed ||
+		a == CommandActionDrink ||
+		a == CommandActionServoTest ||
+		a == CommandActionTare
 }
 
 type CommandStatus string

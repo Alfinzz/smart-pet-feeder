@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../config/app_config.dart';
+import '../models/manual_command.dart';
 import 'api_error.dart';
 import 'api_payload.dart';
 import 'api_client.dart';
@@ -177,14 +178,42 @@ class SettingsService {
     }
   }
 
-  Future<void> testServo({String? deviceId}) async {
+  Future<ManualCommand> testServo({String? deviceId}) async {
+    return _sendDeviceCommand(action: 'servo_test', deviceId: deviceId);
+  }
+
+  Future<ManualCommand> tareSensor({String? deviceId}) async {
+    return _sendDeviceCommand(action: 'tare', deviceId: deviceId);
+  }
+
+  Future<ManualCommand> fetchManualCommand(int commandId) async {
     try {
-      final payload = <String, dynamic>{'action': 'servo_test'};
+      final response = await _apiClient.dio.get<Map<String, dynamic>>(
+        '/control/manual/$commandId',
+      );
+      return ManualCommand.fromJson(response.data!);
+    } on DioException catch (e) {
+      throw apiExceptionFromDio(e);
+    } catch (e) {
+      throw unexpectedApiException(e);
+    }
+  }
+
+  Future<ManualCommand> _sendDeviceCommand({
+    required String action,
+    String? deviceId,
+  }) async {
+    try {
+      final payload = <String, dynamic>{'action': action};
       final trimmedDeviceId = deviceId?.trim() ?? '';
       if (trimmedDeviceId.isNotEmpty) {
         payload['device_id'] = trimmedDeviceId;
       }
-      await _apiClient.dio.post('/control/manual', data: payload);
+      final response = await _apiClient.dio.post<Map<String, dynamic>>(
+        '/control/manual',
+        data: payload,
+      );
+      return ManualCommand.fromJson(response.data!);
     } on DioException catch (e) {
       throw apiExceptionFromDio(e);
     } catch (e) {

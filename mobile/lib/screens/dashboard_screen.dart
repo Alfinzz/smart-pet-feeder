@@ -77,6 +77,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _sendCommand(String action) async {
     if (_busyAction != null) return;
+    if (!_isDeviceOnline) {
+      final shouldQueue = await _confirmOfflineCommand(action);
+      if (shouldQueue != true || !mounted) return;
+    }
 
     setState(() => _busyAction = action);
     try {
@@ -105,6 +109,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } finally {
       if (mounted) setState(() => _busyAction = null);
     }
+  }
+
+  bool get _isDeviceOnline {
+    final lastSeenAt = _overview?.device.lastSeenAt;
+    if (lastSeenAt == null) return false;
+    return DateTime.now().difference(lastSeenAt).inMinutes < 10;
+  }
+
+  Future<bool?> _confirmOfflineCommand(String action) {
+    final commandLabel = action == 'feed' ? 'feed' : 'water refill';
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Device appears offline'),
+        content: Text(
+          'The feeder has not sent data recently. You can still queue the $commandLabel command, but it will run only after the feeder reconnects.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Queue anyway'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<ManualCommand> _waitForCommandResult(ManualCommand command) async {
@@ -139,7 +172,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : 'Command failed: ${command.lastError}';
         color = Colors.red.shade400;
       } else {
-        message = 'Still waiting for feeder confirmation.';
+        message = 'Command queued; feeder has not confirmed yet.';
         color = Colors.orange.shade700;
       }
     }
@@ -168,7 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: RefreshIndicator(
         onRefresh: _loadDashboard,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
           children: [
             // Greeting header
             _buildGreetingHeader(),
@@ -193,24 +226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Row(
       children: [
-        // Pet avatar
-        Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFE3F2FD),
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.pets, size: 24, color: Color(0xFF1565C0)),
-        ),
+        _HeaderAvatar(photoUrl: _overview?.pet.photoUrl ?? ''),
         const SizedBox(width: 14),
         Expanded(
           child: Column(
@@ -483,29 +499,111 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildActionButtons() {
-    return Row(
+    final online = _isDeviceOnline;
+    final busy = _busyAction != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: _ActionButton(
-            label: 'Feed Now',
-            icon: Icons.restaurant,
-            color: const Color(0xFF0F4C75),
-            isLoading: _busyAction == 'feed',
-            onTap: () => _sendCommand('feed'),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: online ? const Color(0xFFE8F5E9) : const Color(0xFFFFF7ED),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: online ? const Color(0xFFA5D6A7) : const Color(0xFFFED7AA),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                online ? Icons.cloud_done : Icons.cloud_off,
+                size: 18,
+                color: online ? Colors.green.shade700 : Colors.orange.shade800,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  online ? 'Feeder online' : 'Feeder offline - queue only',
+                  style: TextStyle(
+                    color: online
+                        ? Colors.green.shade800
+                        : Colors.orange.shade900,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _ActionButton(
-            label: 'Refill Water',
-            icon: Icons.water_drop,
-            color: const Color(0xFF0EA5E9),
-            isLoading: _busyAction == 'drink',
-            onTap: () => _sendCommand('drink'),
-          ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionButton(
+                label: 'Feed Now',
+                icon: Icons.restaurant,
+                color: const Color(0xFF0F4C75),
+                isLoading: _busyAction == 'feed',
+                isDisabled: busy && _busyAction != 'feed',
+                onTap: () => _sendCommand('feed'),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _ActionButton(
+                label: 'Refill Water',
+                icon: Icons.water_drop,
+                color: const Color(0xFF0EA5E9),
+                isLoading: _busyAction == 'drink',
+                isDisabled: busy && _busyAction != 'drink',
+                onTap: () => _sendCommand('drink'),
+              ),
+            ),
+          ],
         ),
       ],
     );
+  }
+}
+
+class _HeaderAvatar extends StatelessWidget {
+  const _HeaderAvatar({required this.photoUrl});
+
+  final String photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedPhotoUrl = photoUrl.trim();
+
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: const Color(0xFFE3F2FD),
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: trimmedPhotoUrl.isEmpty
+          ? _fallbackIcon()
+          : Image.network(
+              trimmedPhotoUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => _fallbackIcon(),
+            ),
+    );
+  }
+
+  Widget _fallbackIcon() {
+    return const Icon(Icons.pets, size: 24, color: Color(0xFF1565C0));
   }
 }
 
@@ -515,6 +613,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.color,
     required this.isLoading,
+    this.isDisabled = false,
     required this.onTap,
   });
 
@@ -522,15 +621,18 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final bool isLoading;
+  final bool isDisabled;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final disabled = isLoading || isDisabled;
+
     return Material(
-      color: color,
+      color: isDisabled ? const Color(0xFFCBD5E1) : color,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: isLoading ? null : onTap,
+        onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),

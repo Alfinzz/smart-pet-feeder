@@ -89,37 +89,45 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
             SafeArea(
+              top: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  vertical: 8,
+                  vertical: 6,
                   horizontal: 16,
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _NavItem(
-                      icon: Icons.grid_view_rounded,
-                      label: 'Dashboard',
-                      isActive: _currentIndex == 0,
-                      onTap: () => setState(() => _currentIndex = 0),
+                    Expanded(
+                      child: _NavItem(
+                        icon: Icons.grid_view_rounded,
+                        label: 'Dashboard',
+                        isActive: _currentIndex == 0,
+                        onTap: () => setState(() => _currentIndex = 0),
+                      ),
                     ),
-                    _NavItem(
-                      icon: Icons.history_rounded,
-                      label: 'History',
-                      isActive: _currentIndex == 1,
-                      onTap: () => setState(() => _currentIndex = 1),
+                    Expanded(
+                      child: _NavItem(
+                        icon: Icons.history_rounded,
+                        label: 'History',
+                        isActive: _currentIndex == 1,
+                        onTap: () => setState(() => _currentIndex = 1),
+                      ),
                     ),
-                    _NavItem(
-                      icon: Icons.favorite_rounded,
-                      label: 'Health',
-                      isActive: _currentIndex == 2,
-                      onTap: () => setState(() => _currentIndex = 2),
+                    Expanded(
+                      child: _NavItem(
+                        icon: Icons.favorite_rounded,
+                        label: 'Health',
+                        isActive: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
+                      ),
                     ),
-                    _NavItem(
-                      icon: Icons.person_rounded,
-                      label: 'Profile',
-                      isActive: _currentIndex == 3,
-                      onTap: () => setState(() => _currentIndex = 3),
+                    Expanded(
+                      child: _NavItem(
+                        icon: Icons.person_rounded,
+                        label: 'Profile',
+                        isActive: _currentIndex == 3,
+                        onTap: () => setState(() => _currentIndex = 3),
+                      ),
                     ),
                   ],
                 ),
@@ -147,40 +155,55 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF5B7FFF).withValues(alpha: 0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 24,
-              color: isActive
-                  ? const Color(0xFF5B7FFF)
-                  : const Color(0xFF94A3B8),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+    return Semantics(
+      selected: isActive,
+      button: true,
+      label: label,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 3),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              height: 58,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+              decoration: BoxDecoration(
                 color: isActive
-                    ? const Color(0xFF5B7FFF)
-                    : const Color(0xFF94A3B8),
+                    ? const Color(0xFF5B7FFF).withValues(alpha: 0.1)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 23,
+                    color: isActive
+                        ? const Color(0xFF5B7FFF)
+                        : const Color(0xFF94A3B8),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isActive
+                          ? const Color(0xFF5B7FFF)
+                          : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

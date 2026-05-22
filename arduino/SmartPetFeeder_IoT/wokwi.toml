@@ -1,4 +1,0 @@
-[wokwi]
-version = 1
-firmware = ".build/SmartPetFeeder_IoT.ino.bin"
-elf = ".build/SmartPetFeeder_IoT.ino.elf"

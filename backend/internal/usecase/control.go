@@ -98,7 +98,7 @@ func (u *ControlUsecase) CreateManualCommand(ctx context.Context, input CreateMa
 		}
 	}
 	if !input.Action.Valid() {
-		return domain.ManualCommand{}, fmt.Errorf("%w: action must be feed, drink, or servo_test", domain.ErrValidation)
+		return domain.ManualCommand{}, fmt.Errorf("%w: action must be feed, drink, servo_test, or tare", domain.ErrValidation)
 	}
 
 	command := domain.ManualCommand{

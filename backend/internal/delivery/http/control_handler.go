@@ -13,7 +13,7 @@ import (
 
 type createManualCommandRequest struct {
 	DeviceID string `json:"device_id"`
-	Action   string `json:"action" binding:"required,oneof=feed drink servo_test"`
+	Action   string `json:"action" binding:"required,oneof=feed drink servo_test tare"`
 }
 
 type updateCommandStatusRequest struct {
@@ -30,7 +30,7 @@ func (h *Handler) createManualCommand(c *gin.Context) {
 
 	var req createManualCommandRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "action feed, drink, or servo_test is required")
+		respondError(c, http.StatusBadRequest, "action feed, drink, servo_test, or tare is required")
 		return
 	}
 

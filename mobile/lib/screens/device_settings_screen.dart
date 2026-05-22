@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dashboard_models.dart';
+import '../models/manual_command.dart';
 import '../services/settings_service.dart';
 
 class DeviceSettingsScreen extends StatefulWidget {
@@ -24,6 +25,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
   double _servoOpenValue = 25;
   double _servoClosedValue = 55;
   bool _automationEnabled = false;
+  bool _advancedServoRange = false;
 
   bool _isSaving = false;
   bool _isCalibrating = false;
@@ -41,6 +43,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
     if (device != null) {
       _servoOpenValue = device.servoOpenDegrees.toDouble();
       _servoClosedValue = device.servoClosedDegrees.toDouble();
+      _advancedServoRange = _servoOpenValue > 90 || _servoClosedValue > 90;
       _automationEnabled = device.automationEnabled;
       final grams = device.manualFeedPortionGrams;
       if (grams <= 15) {
@@ -69,6 +72,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
         _servoClosedValue =
             (settings['servo_closed_degrees'] as num?)?.toDouble() ??
             _servoClosedValue;
+        _advancedServoRange = _servoOpenValue > 90 || _servoClosedValue > 90;
         _automationEnabled =
             settings['automation_enabled'] as bool? ?? _automationEnabled;
         final grams =
@@ -127,29 +131,35 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
     }
   }
 
+  Future<void> _saveCurrentDeviceSettings() async {
+    await widget.settingsService.updateDeviceSettings({
+      'deviceName': _deviceName,
+      'manualPortionSize': _portionLabels[_portionSliderValue.toInt()],
+      'servo_open_degrees': _servoOpenValue.round(),
+      'servo_closed_degrees': _servoClosedValue.round(),
+      'automation_enabled': _automationEnabled,
+    });
+  }
+
   Future<void> _testServo() async {
     if (_isTestingServo) return;
     if (!_validateServoRange()) return;
     setState(() => _isTestingServo = true);
 
     try {
-      await widget.settingsService.updateDeviceSettings({
-        'deviceName': _deviceName,
-        'manualPortionSize': _portionLabels[_portionSliderValue.toInt()],
-        'servo_open_degrees': _servoOpenValue.round(),
-        'servo_closed_degrees': _servoClosedValue.round(),
-        'automation_enabled': _automationEnabled,
-      });
-      await widget.settingsService.testServo(
+      await _saveCurrentDeviceSettings();
+      final command = await widget.settingsService.testServo(
         deviceId: widget.initialDevice?.id,
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Servo test command sent.'),
-          backgroundColor: Colors.green,
-        ),
+      _showDeviceCommandSnackBar(command, pendingMessage: 'Servo test queued.');
+      final finalCommand = await _waitForDeviceCommand(command);
+      if (!mounted) return;
+      _showDeviceCommandSnackBar(
+        finalCommand,
+        successMessage: 'Servo test completed.',
+        timeoutMessage: 'Servo test is still waiting for feeder confirmation.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -183,14 +193,21 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
     setState(() => _isCalibrating = true);
 
     try {
-      await widget.settingsService.calibrateSensor();
+      final command = await widget.settingsService.tareSensor(
+        deviceId: widget.initialDevice?.id,
+      );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Sensor calibrated successfully!'),
-          backgroundColor: Colors.green,
-        ),
+      _showDeviceCommandSnackBar(
+        command,
+        pendingMessage: 'Tare command queued. Keep both bowls empty.',
+      );
+      final finalCommand = await _waitForDeviceCommand(command);
+      if (!mounted) return;
+      _showDeviceCommandSnackBar(
+        finalCommand,
+        successMessage: 'Tare completed and saved on the feeder.',
+        timeoutMessage: 'Tare is still waiting for feeder confirmation.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -204,6 +221,77 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
       if (mounted) {
         setState(() => _isCalibrating = false);
       }
+    }
+  }
+
+  Future<ManualCommand> _waitForDeviceCommand(ManualCommand command) async {
+    var current = command;
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
+
+    while (!current.isTerminal && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      current = await widget.settingsService.fetchManualCommand(command.id);
+    }
+
+    return current;
+  }
+
+  void _showDeviceCommandSnackBar(
+    ManualCommand command, {
+    String? pendingMessage,
+    String? successMessage,
+    String? timeoutMessage,
+  }) {
+    var message = pendingMessage ?? 'Command queued.';
+    var color = Colors.blue.shade700;
+
+    if (command.status == 'completed') {
+      message = successMessage ?? 'Command completed.';
+      color = Colors.green.shade600;
+    } else if (command.status == 'failed') {
+      message = command.lastError.isEmpty
+          ? 'Command failed on the feeder.'
+          : 'Command failed: ${command.lastError}';
+      color = Colors.red.shade400;
+    } else if (pendingMessage == null) {
+      message = timeoutMessage ?? 'Command is still waiting for confirmation.';
+      color = Colors.orange.shade700;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message), backgroundColor: color));
+  }
+
+  Future<void> _setAutomationEnabled(bool value) async {
+    if (!value) {
+      setState(() => _automationEnabled = false);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enable automation?'),
+        content: const Text(
+          'Only enable this after the physical feeder is calibrated and the servo range has been tested.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Enable'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    if (confirmed == true) {
+      setState(() => _automationEnabled = true);
     }
   }
 
@@ -234,7 +322,12 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          40 + MediaQuery.of(context).padding.bottom,
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -475,6 +568,38 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                       style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                     const SizedBox(height: 18),
+                    SwitchListTile(
+                      value: _advancedServoRange,
+                      contentPadding: EdgeInsets.zero,
+                      activeThumbColor: Colors.blue[700],
+                      title: const Text(
+                        'Advanced servo range',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _advancedServoRange
+                            ? 'Allows 0-180 deg. Use only when the mechanism has enough clearance.'
+                            : 'Safe range is limited to 0-90 deg for physical testing.',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _advancedServoRange = value;
+                          if (!value) {
+                            _servoOpenValue = _servoOpenValue
+                                .clamp(0, 90)
+                                .toDouble();
+                            _servoClosedValue = _servoClosedValue
+                                .clamp(0, 90)
+                                .toDouble();
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
                     _buildServoSlider(
                       label: 'Open angle',
                       value: _servoOpenValue,
@@ -494,7 +619,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                     SwitchListTile(
                       value: _automationEnabled,
                       contentPadding: EdgeInsets.zero,
-                      activeColor: Colors.blue[700],
+                      activeThumbColor: Colors.blue[700],
                       title: const Text(
                         'Automatic feeding and water refill',
                         style: TextStyle(
@@ -506,9 +631,7 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
                         'Keep this off until the real sensors are calibrated.',
                         style: TextStyle(color: Colors.grey[600], fontSize: 12),
                       ),
-                      onChanged: (value) {
-                        setState(() => _automationEnabled = value);
-                      },
+                      onChanged: _setAutomationEnabled,
                     ),
                     const SizedBox(height: 12),
                     SizedBox(
@@ -693,10 +816,10 @@ class _DeviceSettingsScreenState extends State<DeviceSettingsScreen> {
           ],
         ),
         Slider(
-          value: value,
+          value: value.clamp(0, _advancedServoRange ? 180 : 90).toDouble(),
           min: 0,
-          max: 180,
-          divisions: 180,
+          max: _advancedServoRange ? 180 : 90,
+          divisions: _advancedServoRange ? 180 : 90,
           activeColor: Colors.blue[600],
           inactiveColor: Colors.blue[100],
           onChanged: onChanged,

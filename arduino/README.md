@@ -1,51 +1,74 @@
 # SmartPetFeeder ESP32 Setup
 
-## Windows Arduino IDE
+Arduino code is split into two independent sketches:
 
-1. Install Arduino IDE 2.x.
-2. Add ESP32 board support from Boards Manager and select `ESP32 Dev Module` or the matching ESP32 DevKit board.
-3. Install these libraries from Library Manager:
-   - `ArduinoJson`
-   - `ESP32Servo`
-   - `HX711`
-4. Open `SmartPetFeeder_IoT/SmartPetFeeder_IoT.ino`.
-5. Fill or adjust `WIFI_SSID`, `WIFI_PASSWORD`, `BACKEND_URL`, `DEVICE_API_KEY`, `DEVICE_ID`, and `RELAY_ACTIVE_LOW` in the configuration section.
-6. Choose the ESP32 port, then upload.
+- `SmartPetFeeder_Physical/`: upload this to the real ESP32 device.
+- `SmartPetFeeder_Wokwi/`: use this only for Wokwi simulation.
 
-## Wokwi VS Code Simulation
+## Required Libraries
 
-The simulator profile is selected with `-DWOKWI_SIMULATION=1`. It uses:
+Install ESP32 board support and these libraries from Arduino IDE Library Manager:
 
-- WiFi SSID: `Wokwi-GUEST`
-- Backend: `http://103.47.224.190:8001`
-- Device ID: `ESP32-001`
-- Virtual sensor values that increase when feed or water commands run
-- Automation is OFF by default so the feeder only runs from manual commands
+- `ArduinoJson`
+- `ESP32Servo`
+- `HX711` for `SmartPetFeeder_Physical`
 
-Install Arduino CLI, the ESP32 core, and the required libraries, then build from the `arduino/SmartPetFeeder_IoT/` directory:
+## Physical ESP32
+
+Open `SmartPetFeeder_Physical/SmartPetFeeder_Physical.ino` in Arduino IDE.
+
+Before upload, check these values in the configuration section:
+
+- `WIFI_SSID`
+- `WIFI_PASSWORD`
+- `BACKEND_URL`
+- `DEVICE_API_KEY`
+- `DEVICE_ID`
+- `RELAY_ACTIVE_LOW`
+
+Compile with Arduino CLI:
 
 ```sh
 arduino-cli compile \
   --fqbn esp32:esp32:esp32doit-devkit-v1 \
-  --output-dir .build \
-  --build-property build.extra_flags="-DWOKWI_SIMULATION=1" \
-  .
+  arduino/SmartPetFeeder_Physical
 ```
 
-Open `arduino/SmartPetFeeder_IoT/` in VS Code with the Wokwi extension installed, then start the simulation. The extension reads `wokwi.toml` and `diagram.json`.
+Initial physical-device test sequence:
 
-After starting the simulator, wait about 20 seconds before pressing buttons in the Flutter app. Commands that were already queued before the device booted are reported as failed with `stale startup command ignored`, so they do not move the servo or pump.
+- `v`: test feed servo open/close using current configured degrees.
+- `p`: run feed dispensing.
+- `a`: run water refill.
+- `t`: tare both load cells.
+- `w`: reconnect WiFi.
+- `o`: toggle automatic feed/water mode.
+- `[` and `]`: adjust servo open degree by 1 degree.
+- `s`: save local config.
+- `r`: reset local config to defaults.
 
-Use the Flutter app against `http://103.47.224.190:8001/api/v1`, log in as the demo owner, then press `Feed Now` or `Refill Water`. The serial monitor should show the new command being polled, executed, and reported as `completed`.
+Keep automatic mode OFF until the real load cells are calibrated and stable. If a load cell reads near zero after dispensing, automatic mode can repeatedly feed or refill every cooldown cycle.
 
-## Real ESP32 Upload
+## Wokwi VS Code Simulation
 
-Build or upload without `-DWOKWI_SIMULATION=1`. Before uploading at your friend's house, update `WIFI_SSID` and `WIFI_PASSWORD`, then test these serial commands first:
+Open `SmartPetFeeder_Wokwi/` in VS Code with the Wokwi extension installed. The folder contains its own `diagram.json` and `wokwi.toml`.
 
-- `p`: open the feed servo
-- `a`: turn the water pump relay on until the virtual/real target is reached
-- `t`: tare both load cells
-- `w`: reconnect WiFi
-- `o`: toggle automatic feed/water mode
+The Wokwi sketch uses:
 
-Keep automatic mode OFF until the real load cells are calibrated and verified. If a load cell reads near zero after dispensing, automatic mode can repeatedly feed or refill every cooldown cycle.
+- WiFi SSID: `Wokwi-GUEST`
+- Backend: `http://103.47.224.190:8001`
+- Device ID: `ESP32-001`
+- Virtual feed and water values that increase when commands run
+- Automation OFF by default
+
+Compile Wokwi firmware with Arduino CLI:
+
+```sh
+arduino-cli compile \
+  --fqbn esp32:esp32:esp32doit-devkit-v1 \
+  --output-dir arduino/SmartPetFeeder_Wokwi/.build \
+  arduino/SmartPetFeeder_Wokwi
+```
+
+After starting the simulator, wait about 20 seconds before pressing buttons in the Flutter app. Commands queued before boot are reported as failed with `stale startup command ignored`, so they do not move the servo or pump.
+
+Use the Flutter app against `http://103.47.224.190:8001/api/v1`, log in as the demo owner, then press `Feed Now`, `Refill Water`, or `Save & Test Servo`. The serial monitor should show the command being polled, executed, and reported as `completed`.

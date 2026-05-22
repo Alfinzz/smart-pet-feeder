@@ -157,7 +157,12 @@ class _NotificationPreferencesScreenState
       body: Stack(
         children: [
           ListView(
-            padding: const EdgeInsets.all(24.0),
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              40 + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
               Text(
                 'Alert Settings',
@@ -218,11 +223,11 @@ class _NotificationPreferencesScreenState
                     _buildPreferenceTile(
                       title: 'Health Anomalies',
                       description:
-                          'Crucial alerts for irregular eating or drinking patterns.',
+                          'Coming soon after health anomaly detection is available.',
                       icon: Icons.monitor_heart,
-                      value: _healthAnomalies,
-                      onChanged: (val) =>
-                          _updatePreference('healthAnomalies', val),
+                      value: false,
+                      onChanged: (_) {},
+                      enabled: false,
                       isLast: true,
                     ),
                   ],
@@ -248,34 +253,39 @@ class _NotificationPreferencesScreenState
     required IconData icon,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool enabled = true,
     bool isLast = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.blue[50],
-            shape: BoxShape.circle,
+    return Opacity(
+      opacity: enabled ? 1 : 0.56,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: ListTile(
+          enabled: enabled,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.blue[600], size: 24),
           ),
-          child: Icon(icon, color: Colors.blue[600], size: 24),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
-          child: Text(
-            description,
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          title: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
           ),
-        ),
-        trailing: CupertinoSwitch(
-          activeTrackColor: Colors.blue[600],
-          value: value,
-          onChanged: _isLoading ? null : onChanged,
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              description,
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+            ),
+          ),
+          trailing: CupertinoSwitch(
+            activeTrackColor: Colors.blue[600],
+            value: value,
+            onChanged: enabled && !_isLoading ? onChanged : null,
+          ),
         ),
       ),
     );

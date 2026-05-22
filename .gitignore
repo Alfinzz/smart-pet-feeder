@@ -11,6 +11,7 @@ backend/tmp/
 backend/.gocache/
 backend/uploads/
 arduino/**/.build/
+arduino/**/build/
 .idea/
 .vscode/
 *.swp
