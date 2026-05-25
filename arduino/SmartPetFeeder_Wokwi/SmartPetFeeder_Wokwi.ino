@@ -48,8 +48,7 @@ const float PORSI_PAKAN_GRAM_DEFAULT = 50.0;
 const float TARGET_AIR_GRAM       = 200.0;
 const float TINGGI_WADAH_CM       = 13.1;
 
-const float BATAS_MINIMAL_PAKAN   = 10.0;
-const float BATAS_MINIMAL_AIR     = 50.0;
+const float BATAS_MINIMAL_STOK_PAKAN_PERSEN = 10.0;
 
 const unsigned long US_TIMEOUT          = 30000;
 const unsigned long INTERVAL_CETAK      = 2000;   // cetak serial setiap 2 detik
@@ -76,13 +75,10 @@ unsigned long lastPolling   = 0;
 unsigned long lastConfig    = 0;
 
 unsigned long waktuTerakhirPakan = 0;
-unsigned long waktuTerakhirAir   = 0;
 long lastCompletedCommandID = 0;
 bool automationEnabled = AUTOMATION_ENABLED_DEFAULT;
 int autoFeedFailures = 0;
-int autoWaterFailures = 0;
 bool autoFeedLocked = false;
-bool autoWaterLocked = false;
 float porsiPakanGram = PORSI_PAKAN_GRAM_DEFAULT;
 int servoOpenDeg = SERVO_OPEN_DEG_DEFAULT;
 int servoClosedDeg = SERVO_CLOSED_DEG_DEFAULT;
@@ -135,7 +131,6 @@ void setup() {
 
   // Bypass jeda awal agar sistem langsung aktif
   waktuTerakhirPakan = millis() - JEDA_OTOMATIS;
-  waktuTerakhirAir   = millis() - JEDA_OTOMATIS;
 
   Serial.println();
   Serial.println(F("[READY] Sistem siap & Berjalan."));
@@ -177,9 +172,7 @@ void simpanConfigDevice() {
 
 void resetAutomationFaults() {
   autoFeedFailures = 0;
-  autoWaterFailures = 0;
   autoFeedLocked = false;
-  autoWaterLocked = false;
   Serial.println(F("[AUTO] Counter kegagalan otomatisasi direset."));
 }
 
@@ -194,20 +187,6 @@ void catatHasilAutoPakan(bool berhasil) {
   if (autoFeedFailures >= AUTOMATION_MAX_FAILURES) {
     autoFeedLocked = true;
     Serial.println(F("[AUTO] Otomatisasi pakan dikunci. Matikan lalu nyalakan otomatisasi untuk mencoba lagi."));
-  }
-}
-
-void catatHasilAutoAir(bool berhasil) {
-  if (berhasil) {
-    autoWaterFailures = 0;
-    return;
-  }
-  autoWaterFailures++;
-  Serial.print(F("[AUTO] Gagal isi air otomatis berturut-turut: "));
-  Serial.println(autoWaterFailures);
-  if (autoWaterFailures >= AUTOMATION_MAX_FAILURES) {
-    autoWaterLocked = true;
-    Serial.println(F("[AUTO] Otomatisasi air dikunci. Matikan lalu nyalakan otomatisasi untuk mencoba lagi."));
   }
 }
 
@@ -499,6 +478,7 @@ void cetakErrorHTTP(const __FlashStringHelper* prefix, int statusCode, HTTPClien
  * }
  */
 void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
+  (void)beratMinum;
   if (WiFi.status() != WL_CONNECTED) return;
 
   WiFiClient client;
@@ -512,10 +492,6 @@ void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
   http.addHeader("Content-Type", "application/json");
   http.addHeader("X-Device-Key", DEVICE_API_KEY);
 
-  // Tentukan status air
-  bool  airTersedia = (beratMinum >= 0 && beratMinum >= BATAS_MINIMAL_AIR);
-  String statusAir  = airTersedia ? "available" : "low";
-
   // Build JSON body
   StaticJsonDocument<768> doc;
   doc["device_id"]    = DEVICE_ID;
@@ -523,8 +499,8 @@ void kirimDataSensor(float beratPakan, float beratMinum, float stokPersen) {
   if (stokPersen >= 0) {
     doc["food_stock_percent"] = stokPersen;
   }
-  doc["water_available"] = airTersedia;
-  doc["water_status"]    = statusAir;
+  doc["water_available"] = true;
+  doc["water_status"]    = "available";
 
   String body;
   serializeJson(doc, body);
@@ -634,7 +610,6 @@ void pollingPerintah() {
     } else {
       berhasil = isiAir(errorMessage);
       if (berhasil) {
-        waktuTerakhirAir = millis();
         simpanCommandSelesai(commandID);
       }
     }
@@ -711,9 +686,7 @@ void loop() {
         }
         break;
       case 'A': case 'a':
-        if (isiAir(errorMessage)) {
-          waktuTerakhirAir = millis();
-        }
+        isiAir(errorMessage);
         break;
       case 'T': case 't':
         tareSensor(errorMessage);
@@ -775,11 +748,13 @@ void loop() {
   // Baca Sensor
   float beratPakan = bacaBeratPakan();
   float beratMinum = bacaBeratMinum();
+  float stokPersen = hitungPersentaseStok();
 
-  // LOGIKA OTOMATIS PAKAN
-  if (automationEnabled && !autoFeedLocked && beratPakan >= 0 && beratPakan <= BATAS_MINIMAL_PAKAN) {
+  // LOGIKA OTOMATIS PAKAN BERDASARKAN ULTRASONIK
+  if (automationEnabled && !autoFeedLocked &&
+      stokPersen >= 0 && stokPersen <= BATAS_MINIMAL_STOK_PAKAN_PERSEN) {
     if (millis() - waktuTerakhirPakan >= JEDA_OTOMATIS) {
-      Serial.println(F("[AUTO] Mangkok pakan kosong!"));
+      Serial.println(F("[AUTO] Stok pakan rendah berdasarkan ultrasonik!"));
       String errorMessage = "";
       waktuTerakhirPakan = millis();
       bool berhasil = bukaPakan(errorMessage);
@@ -787,29 +762,16 @@ void loop() {
     }
   }
 
-  // LOGIKA OTOMATIS AIR
-  if (automationEnabled && !autoWaterLocked && beratMinum >= 0 && beratMinum <= BATAS_MINIMAL_AIR) {
-    if (millis() - waktuTerakhirAir >= JEDA_OTOMATIS) {
-      Serial.println(F("[AUTO] Mangkok air kosong!"));
-      String errorMessage = "";
-      waktuTerakhirAir = millis();
-      bool berhasil = isiAir(errorMessage);
-      catatHasilAutoAir(berhasil);
-    }
-  }
-
   // Kirim Data ke Backend (setiap INTERVAL_KIRIM_DATA ms)
   if (millis() - lastKirimData >= INTERVAL_KIRIM_DATA) {
     lastKirimData = millis();
     pastikanWiFi();
-    float stokPersen = hitungPersentaseStok();
     kirimDataSensor(beratPakan, beratMinum, stokPersen);
   }
 
   // Cetak Log Serial (setiap INTERVAL_CETAK ms)
   if (millis() - lastPrint >= INTERVAL_CETAK) {
     lastPrint = millis();
-    float stokPersen = hitungPersentaseStok();
     cetakDataSensor(beratPakan, beratMinum, stokPersen);
   }
 }

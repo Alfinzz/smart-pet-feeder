@@ -54,7 +54,7 @@ Initial physical-device test sequence:
 - `s`: save local config.
 - `r`: reset local config to defaults.
 
-Keep automatic mode OFF until the real load cells are calibrated and stable. If a load cell reads near zero after dispensing, automatic mode can repeatedly feed or refill every cooldown cycle.
+Keep automatic mode OFF until the ultrasonic food-stock reading is stable and the feed load cell is calibrated. The dashboard food stock comes from the ultrasonic sensor percentage. The dashboard water status is always reported as available for demo stability; manual water refill can still be triggered with `a` or from the mobile app.
 
 ## Wokwi VS Code Simulation
 
@@ -66,7 +66,8 @@ The Wokwi sketch uses:
 - Backend: `http://103.47.224.190:8001`
 - Device ID: `ESP32-001`
 - Relay simulation: active LOW, matching the physical relay control logic
-- Virtual feed and water values that increase when commands run
+- Virtual food stock percentage driven by the simulated ultrasonic reading
+- Water status always reported as available
 - Automation OFF by default
 
 Compile Wokwi firmware with Arduino CLI:
