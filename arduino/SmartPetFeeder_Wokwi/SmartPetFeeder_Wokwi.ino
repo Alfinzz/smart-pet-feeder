@@ -56,8 +56,8 @@ const unsigned long INTERVAL_KIRIM_DATA = 10000;  // kirim ke backend setiap 10 
 const unsigned long INTERVAL_POLLING    = 5000;   // polling perintah setiap 5 detik
 const unsigned long INTERVAL_CONFIG     = 15000;  // ambil config device setiap 15 detik
 
-const unsigned long TIMEOUT_BUKA_PAKAN = 15000;
-const unsigned long TIMEOUT_ISI_AIR    = 30000;
+const unsigned long FEED_ACTUATION_MS  = 1500;
+const unsigned long WATER_ACTUATION_MS = 3000;
 const unsigned long JEDA_OTOMATIS      = 60000;   // cooldown 1 menit
 const unsigned long STARTUP_COMMAND_DRAIN_MS = 20000;
 const bool AUTOMATION_ENABLED_DEFAULT = false;
@@ -358,44 +358,28 @@ bool tareSensor(String& errorMessage) {
 
 // ===================== FUNGSI AKTUATOR =====================
 bool bukaPakan(String& errorMessage) {
+  (void)errorMessage;
   Serial.println(F("\n[ACT] MEMBERI PAKAN - MULAI"));
-  float beratAwal = bacaBeratPakan();
-  if (beratAwal < 0) {
-    errorMessage = "load cell pakan tidak siap";
-    Serial.println(F("[FAIL] Load cell pakan tidak siap."));
-    return false;
-  }
-  float beratTarget = beratAwal + porsiPakanGram;
-
   servoPakan.write(servoOpenDeg);
   Serial.print(F("[ACT] Servo BUKA ("));
   Serial.print(servoOpenDeg);
-  Serial.println(F(" deg) - pakan mengalir..."));
+  Serial.print(F(" deg) selama "));
+  Serial.print(FEED_ACTUATION_MS);
+  Serial.println(F(" ms"));
+  delay(FEED_ACTUATION_MS);
 
-  bool targetTercapai = false;
-  unsigned long mulai = millis();
-  while (millis() - mulai < TIMEOUT_BUKA_PAKAN) {
-    simBeratPakan += 12.5;
-    if (simStokPakanPersen >= 4.0) {
-      simStokPakanPersen -= 4.0;
-    }
-    float beratSekarang = bacaBeratPakan();
-    if (beratSekarang >= 0 && beratSekarang >= beratTarget) {
-      targetTercapai = true;
-      break;
-    }
-    delay(200);
+  simBeratPakan += porsiPakanGram;
+  float stokTurun = (porsiPakanGram / PORSI_PAKAN_GRAM_DEFAULT) * 16.0;
+  if (simStokPakanPersen > stokTurun) {
+    simStokPakanPersen -= stokTurun;
+  } else {
+    simStokPakanPersen = 0.0;
   }
 
   servoPakan.write(servoClosedDeg);
   Serial.print(F("[ACT] Servo TUTUP ("));
   Serial.print(servoClosedDeg);
   Serial.println(F(" deg)"));
-  if (!targetTercapai) {
-    errorMessage = "target porsi pakan tidak tercapai";
-    Serial.println(F("[FAIL] Target porsi pakan tidak tercapai."));
-    return false;
-  }
   Serial.println(F("[DONE] Pengisian pakan selesai.\n"));
   return true;
 }
@@ -411,42 +395,21 @@ bool testServoPakan(String& errorMessage) {
 }
 
 bool isiAir(String& errorMessage) {
+  (void)errorMessage;
   Serial.println(F("\n[ACT] MENGISI AIR - MULAI"));
-  float beratAwal = bacaBeratMinum();
-  if (beratAwal < 0) {
-    errorMessage = "load cell minum tidak siap";
-    Serial.println(F("[FAIL] Load cell minum tidak siap."));
-    return false;
-  }
-  if (beratAwal >= TARGET_AIR_GRAM) {
-    Serial.println(F("[SKIP] Air sudah penuh."));
-    return true;
-  }
-
   nyalakanPompa();
-  Serial.println(F("[ACT] Pompa NYALA - mengisi air..."));
+  Serial.print(F("[ACT] Pompa NYALA selama "));
+  Serial.print(WATER_ACTUATION_MS);
+  Serial.println(F(" ms"));
+  delay(WATER_ACTUATION_MS);
 
-  bool targetTercapai = false;
-  unsigned long mulai = millis();
-  while (millis() - mulai < TIMEOUT_ISI_AIR) {
-    if (simBeratMinum < TARGET_AIR_GRAM) {
-      simBeratMinum += 20.0;
-    }
-    float beratSekarang = bacaBeratMinum();
-    if (beratSekarang >= 0 && beratSekarang >= TARGET_AIR_GRAM) {
-      targetTercapai = true;
-      break;
-    }
-    delay(200);
+  simBeratMinum += 60.0;
+  if (simBeratMinum > TARGET_AIR_GRAM) {
+    simBeratMinum = TARGET_AIR_GRAM;
   }
 
   matikanPompa();
   Serial.println(F("[ACT] Pompa MATI"));
-  if (!targetTercapai) {
-    errorMessage = "target air tidak tercapai";
-    Serial.println(F("[FAIL] Target air tidak tercapai."));
-    return false;
-  }
   Serial.println(F("[DONE] Pengisian air selesai.\n"));
   return true;
 }

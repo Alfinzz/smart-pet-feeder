@@ -54,7 +54,7 @@ Initial physical-device test sequence:
 - `s`: save local config.
 - `r`: reset local config to defaults.
 
-Keep automatic mode OFF until the ultrasonic food-stock reading is stable and the feed load cell is calibrated. The dashboard food stock comes from the ultrasonic sensor percentage. The dashboard water status is always reported as available for demo stability; manual water refill can still be triggered with `a` or from the mobile app.
+Manual feed and water refill commands drive the servo and pump by fixed time, so they do not require load cells to be ready. Load cells are only used for telemetry and `tare` calibration. Keep automatic mode OFF until the ultrasonic food-stock reading is stable. The dashboard food stock comes from the ultrasonic sensor percentage. The dashboard water status is always reported as available for demo stability.
 
 ## Wokwi VS Code Simulation
 
