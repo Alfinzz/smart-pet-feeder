@@ -26,6 +26,14 @@ Before upload, check these values in the configuration section:
 - `DEVICE_ID`
 - `RELAY_ACTIVE_LOW`
 
+### Physical power and relay notes
+
+The physical sketch assumes a 1-channel Songle SRD-05VDC-SL-C relay module that is active LOW on GPIO 23. To keep the pump off, the firmware releases GPIO 23 as `INPUT`; to turn it on, the firmware drives GPIO 23 LOW.
+
+Use the ESP32 only as the controller signal source. Do not power the Tower-Pro MG996R servo or the 3V-5V mini submersible pump from an ESP32 GPIO, 3V3 pin, or weak USB rail. Use a stable external 5V supply or LM2596 step-down output sized for the servo, relay module, and pump, then connect the external supply GND to ESP32 GND.
+
+Wire the pump through the relay contact as normally-off: supply positive -> relay `COM`, relay `NO` -> pump positive, pump negative -> supply negative. If the pump is wired through `NC`, it will run at power-on until the relay is energized.
+
 Compile with Arduino CLI:
 
 ```sh
@@ -57,6 +65,7 @@ The Wokwi sketch uses:
 - WiFi SSID: `Wokwi-GUEST`
 - Backend: `http://103.47.224.190:8001`
 - Device ID: `ESP32-001`
+- Relay simulation: active LOW, matching the physical relay control logic
 - Virtual feed and water values that increase when commands run
 - Automation OFF by default
 

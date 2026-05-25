@@ -33,7 +33,8 @@ const char* BACKEND_URL    = "http://103.47.224.190:8001";
 const char* DEVICE_API_KEY = "fY-XGzWSxyPe4a9IpMtWT5H1Ddb0tdpcuRkcirkuqa8";
 const char* DEVICE_ID      = "ESP32-001";
 
-// Kebanyakan relay module aktif saat pin LOW. Ubah ke false jika relay aktif saat HIGH.
+// Relay fisik Songle 1-channel diperlakukan aktif LOW.
+// OFF memakai mode INPUT agar GPIO tidak menarik optocoupler relay.
 const bool RELAY_ACTIVE_LOW = true;
 
 // ===================== PIN DEFINITION =====================
@@ -128,8 +129,7 @@ void setup() {
   Serial.println(F(" deg)"));
 
   // Inisialisasi Relay (Pompa)
-  pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? HIGH : LOW);
+  matikanPompa();
   Serial.println(F("[INIT] Relay Pompa  -> GPIO 23 (MATI)"));
 
   // Inisialisasi Ultrasonik
@@ -252,11 +252,22 @@ void cetakConfigDevice() {
 }
 
 void nyalakanPompa() {
-  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? LOW : HIGH);
+  if (RELAY_ACTIVE_LOW) {
+    digitalWrite(RELAY_PIN, LOW);
+    pinMode(RELAY_PIN, OUTPUT);
+    return;
+  }
+  digitalWrite(RELAY_PIN, HIGH);
+  pinMode(RELAY_PIN, OUTPUT);
 }
 
 void matikanPompa() {
-  digitalWrite(RELAY_PIN, RELAY_ACTIVE_LOW ? HIGH : LOW);
+  if (RELAY_ACTIVE_LOW) {
+    pinMode(RELAY_PIN, INPUT);
+    return;
+  }
+  digitalWrite(RELAY_PIN, LOW);
+  pinMode(RELAY_PIN, OUTPUT);
 }
 
 // ===================== KONEKSI WiFi =====================

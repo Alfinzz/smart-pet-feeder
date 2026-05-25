@@ -5,7 +5,7 @@
   "parts": [
     { "type": "board-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
     { "type": "wokwi-servo", "id": "servoPakan", "top": -88, "left": 250, "attrs": {} },
-    { "type": "wokwi-relay-module", "id": "relayPompa", "top": 80, "left": 260, "attrs": {} },
+    { "type": "wokwi-relay-module", "id": "relayPompa", "top": 80, "left": 260, "attrs": { "transistor": "pnp" } },
     { "type": "wokwi-hc-sr04", "id": "ultrasonik", "top": -140, "left": -230, "attrs": {} },
     { "type": "wokwi-hx711", "id": "hxPakan", "top": 160, "left": -250, "attrs": {} },
     { "type": "wokwi-hx711", "id": "hxMinum", "top": 292, "left": -250, "attrs": {} },
