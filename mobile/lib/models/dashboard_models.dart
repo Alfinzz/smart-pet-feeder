@@ -214,7 +214,10 @@ class CareTask {
     required this.category,
     required this.title,
     required this.subtitle,
+    required this.description,
     required this.dueLabel,
+    required this.dueDate,
+    required this.status,
     required this.priority,
   });
 
@@ -222,19 +225,72 @@ class CareTask {
   final String category;
   final String title;
   final String subtitle;
+  final String description;
   final String dueLabel;
+  final DateTime? dueDate;
+  final String status;
   final String priority;
 
+  int? get daysUntilDue {
+    final due = dueDate;
+    if (due == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(due.year, due.month, due.day);
+    return dueDay.difference(today).inDays;
+  }
+
+  bool get isDueWithinSevenDays {
+    final days = daysUntilDue;
+    return days != null && days <= 7;
+  }
+
+  String get displayDueLabel {
+    final days = daysUntilDue;
+    if (days == null) return dueLabel;
+    if (days < 0) return 'Overdue';
+    if (days == 0) return 'Due today';
+    if (days <= 7) return days == 1 ? 'Due in 1 day' : 'Due in $days days';
+    return _formatShortDate(dueDate!);
+  }
+
   factory CareTask.fromJson(Map<String, dynamic> json) {
+    final description =
+        (json['description'] as String?) ?? (json['subtitle'] as String?) ?? '';
+    final dueValue =
+        (json['due_date'] as String?) ?? (json['due_at'] as String?);
     return CareTask(
       id: (json['id'] as num?)?.toInt() ?? 0,
       category: json['category'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      subtitle: json['subtitle'] as String? ?? '',
+      subtitle: description,
+      description: description,
       dueLabel: json['due_label'] as String? ?? '',
+      dueDate: dueValue == null || dueValue.isEmpty
+          ? null
+          : DateTime.tryParse(dueValue),
+      status: json['status'] as String? ?? 'pending',
       priority: json['priority'] as String? ?? 'normal',
     );
   }
+}
+
+String _formatShortDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${months[value.month - 1]} ${value.day}';
 }
 
 class HealthSummary {
@@ -270,6 +326,58 @@ class HealthSummary {
       upcomingTasks: tasks
           .map((item) => CareTask.fromJson(item as Map<String, dynamic>))
           .toList(),
+    );
+  }
+
+  HealthSummary copyWith({
+    PetProfile? pet,
+    int? score,
+    String? statusLabel,
+    String? headline,
+    String? description,
+    HealthVitals? vitals,
+    List<CareTask>? upcomingTasks,
+  }) {
+    return HealthSummary(
+      pet: pet ?? this.pet,
+      score: score ?? this.score,
+      statusLabel: statusLabel ?? this.statusLabel,
+      headline: headline ?? this.headline,
+      description: description ?? this.description,
+      vitals: vitals ?? this.vitals,
+      upcomingTasks: upcomingTasks ?? this.upcomingTasks,
+    );
+  }
+}
+
+class UserAlert {
+  const UserAlert({
+    required this.id,
+    required this.type,
+    required this.title,
+    required this.message,
+    required this.severity,
+    required this.dueDate,
+  });
+
+  final String id;
+  final String type;
+  final String title;
+  final String message;
+  final String severity;
+  final DateTime? dueDate;
+
+  factory UserAlert.fromJson(Map<String, dynamic> json) {
+    final dueValue = json['due_date'] as String?;
+    return UserAlert(
+      id: json['id'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      severity: json['severity'] as String? ?? 'info',
+      dueDate: dueValue == null || dueValue.isEmpty
+          ? null
+          : DateTime.tryParse(dueValue),
     );
   }
 }

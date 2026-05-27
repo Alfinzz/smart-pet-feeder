@@ -26,6 +26,7 @@ RUN chmod +x /app/docker-entrypoint.sh
 
 ENV APP_PORT=8080
 ENV GIN_MODE=release
+ENV RUN_MIGRATE=true
 ENV MIGRATIONS_PATH=/app/migrations
 ENV UPLOAD_DIR=/app/uploads
 

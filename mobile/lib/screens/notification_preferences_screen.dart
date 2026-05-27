@@ -19,7 +19,7 @@ class _NotificationPreferencesScreenState
     extends State<NotificationPreferencesScreen> {
   bool _lowFoodAlert = true;
   bool _emptyWaterAlert = true;
-  bool _feedSuccessReport = false;
+  bool _feedSuccessReport = true;
   bool _healthAnomalies = true;
 
   bool _isLoading = false;
@@ -39,11 +39,16 @@ class _NotificationPreferencesScreenState
       if (!mounted) return;
       setState(() {
         _lowFoodAlert = preferences['low_food_alert'] as bool? ?? _lowFoodAlert;
+        _lowFoodAlert = preferences['alert_low_food'] as bool? ?? _lowFoodAlert;
         _emptyWaterAlert =
             preferences['empty_water_alert'] as bool? ?? _emptyWaterAlert;
+        _emptyWaterAlert =
+            preferences['alert_empty_water'] as bool? ?? _emptyWaterAlert;
         _feedSuccessReport =
             preferences['feeding_success_report'] as bool? ??
             _feedSuccessReport;
+        _feedSuccessReport =
+            preferences['alert_feed_success'] as bool? ?? _feedSuccessReport;
       });
     } catch (_) {
       if (!mounted) return;

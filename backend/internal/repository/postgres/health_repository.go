@@ -20,7 +20,7 @@ func NewHealthRepository(pool *pgxpool.Pool) *HealthRepository {
 
 func (r *HealthRepository) GetPrimaryHealthPet(ctx context.Context, ownerID int64) (domain.HealthPet, error) {
 	const query = `
-		SELECT id, owner_id, device_id, name, daily_feed_target_grams
+		SELECT id, owner_id, device_id, name, weight_kg, activity_minutes, sleep_hours, daily_feed_target_grams
 		FROM pets
 		WHERE owner_id = $1
 		ORDER BY id
@@ -33,6 +33,9 @@ func (r *HealthRepository) GetPrimaryHealthPet(ctx context.Context, ownerID int6
 		&pet.OwnerID,
 		&pet.DeviceID,
 		&pet.Name,
+		&pet.WeightKG,
+		&pet.ActivityMinutes,
+		&pet.SleepHours,
 		&pet.DailyFeedTargetGrams,
 	)
 	if err != nil {
@@ -45,6 +48,12 @@ func (r *HealthRepository) GetPrimaryHealthPet(ctx context.Context, ownerID int6
 }
 
 func (r *HealthRepository) SaveVitalSigns(ctx context.Context, petID int64, input domain.VitalSignsInput) (domain.VitalSigns, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return domain.VitalSigns{}, err
+	}
+	defer tx.Rollback(ctx)
+
 	const query = `
 		INSERT INTO pet_vital_signs (pet_id, weight_kg, activity_minutes, sleep_hours, recorded_at)
 		VALUES ($1, $2, $3, $4, $5)
@@ -52,7 +61,7 @@ func (r *HealthRepository) SaveVitalSigns(ctx context.Context, petID int64, inpu
 	`
 
 	var vitals domain.VitalSigns
-	err := r.pool.QueryRow(
+	err = tx.QueryRow(
 		ctx,
 		query,
 		petID,
@@ -70,6 +79,21 @@ func (r *HealthRepository) SaveVitalSigns(ctx context.Context, petID int64, inpu
 		&vitals.CreatedAt,
 	)
 	if err != nil {
+		return domain.VitalSigns{}, err
+	}
+
+	const updatePetQuery = `
+		UPDATE pets
+		SET weight_kg = $2,
+		    activity_minutes = $3,
+		    sleep_hours = $4
+		WHERE id = $1
+	`
+	if _, err := tx.Exec(ctx, updatePetQuery, petID, input.WeightKG, input.ActivityMinutes, input.SleepHours); err != nil {
+		return domain.VitalSigns{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return domain.VitalSigns{}, err
 	}
 	return vitals, nil
@@ -127,6 +151,22 @@ func (r *HealthRepository) AverageDailyFeedConsumption(ctx context.Context, devi
 		return 0, err
 	}
 	return average, nil
+}
+
+func (r *HealthRepository) CountOverduePendingTasks(ctx context.Context, petID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM pet_tasks
+		WHERE pet_id = $1
+		  AND status = 'pending'
+		  AND due_date < CURRENT_DATE
+	`
+
+	var count int
+	if err := r.pool.QueryRow(ctx, query, petID).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (r *HealthRepository) scanVitalSigns(ctx context.Context, query string, args ...any) (domain.VitalSigns, error) {

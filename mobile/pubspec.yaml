@@ -14,10 +14,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   dio: ^5.9.2
   flutter_secure_storage: ^10.0.0
+  flutter_local_notifications: ^20.1.0
   fl_chart: ^1.2.0
   google_fonts: ^6.1.0
   image_picker: ^1.1.2
   app_settings: ^7.0.0
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:

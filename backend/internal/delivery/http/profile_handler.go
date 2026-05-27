@@ -32,6 +32,15 @@ type notificationPreferencesRequest struct {
 	FeedingSuccessReport bool `json:"feeding_success_report"`
 }
 
+type notificationPreferencesPatchRequest struct {
+	AlertLowFood         *bool `json:"alert_low_food"`
+	AlertEmptyWater      *bool `json:"alert_empty_water"`
+	AlertFeedSuccess     *bool `json:"alert_feed_success"`
+	LowFoodAlert         *bool `json:"low_food_alert"`
+	EmptyWaterAlert      *bool `json:"empty_water_alert"`
+	FeedingSuccessReport *bool `json:"feeding_success_report"`
+}
+
 func (h *Handler) getPetDetails(c *gin.Context) {
 	ownerID, ok := ownerIDFromContext(c)
 	if !ok {
@@ -217,6 +226,58 @@ func (h *Handler) updateNotificationPreferences(c *gin.Context) {
 	c.JSON(http.StatusOK, notificationPreferencesResponse(preferences))
 }
 
+func (h *Handler) patchNotificationPreferences(c *gin.Context) {
+	ownerID, ok := ownerIDFromContext(c)
+	if !ok {
+		respondUsecaseError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	var req notificationPreferencesPatchRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "valid notification preferences are required")
+		return
+	}
+
+	current, err := h.profile.GetNotificationPreferences(c.Request.Context(), ownerID)
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	input := domain.NotificationPreferencesInput{
+		LowFoodAlert:         current.LowFoodAlert,
+		EmptyWaterAlert:      current.EmptyWaterAlert,
+		FeedingSuccessReport: current.FeedingSuccessReport,
+	}
+	if req.AlertLowFood != nil {
+		input.LowFoodAlert = *req.AlertLowFood
+	}
+	if req.LowFoodAlert != nil {
+		input.LowFoodAlert = *req.LowFoodAlert
+	}
+	if req.AlertEmptyWater != nil {
+		input.EmptyWaterAlert = *req.AlertEmptyWater
+	}
+	if req.EmptyWaterAlert != nil {
+		input.EmptyWaterAlert = *req.EmptyWaterAlert
+	}
+	if req.AlertFeedSuccess != nil {
+		input.FeedingSuccessReport = *req.AlertFeedSuccess
+	}
+	if req.FeedingSuccessReport != nil {
+		input.FeedingSuccessReport = *req.FeedingSuccessReport
+	}
+
+	preferences, err := h.profile.UpsertNotificationPreferences(c.Request.Context(), ownerID, input)
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, notificationPreferencesResponse(preferences))
+}
+
 func bindPetDetailsInput(c *gin.Context) (domain.PetDetailsInput, bool) {
 	var req petDetailsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -288,6 +349,9 @@ func notificationPreferencesResponse(preferences domain.NotificationPreferences)
 		"low_food_alert":         preferences.LowFoodAlert,
 		"empty_water_alert":      preferences.EmptyWaterAlert,
 		"feeding_success_report": preferences.FeedingSuccessReport,
+		"alert_low_food":         preferences.LowFoodAlert,
+		"alert_empty_water":      preferences.EmptyWaterAlert,
+		"alert_feed_success":     preferences.FeedingSuccessReport,
 		"updated_at":             preferences.UpdatedAt,
 	}
 }

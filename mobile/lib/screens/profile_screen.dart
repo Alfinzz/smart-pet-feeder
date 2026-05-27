@@ -250,8 +250,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               iconBgColor: const Color(0xFFF5F3FF),
               title: 'Log Health Vitals',
               subtitle: 'Weight, activity, sleep',
-              onTap: () {
-                showModalBottomSheet(
+              onTap: () async {
+                final submitted = await showModalBottomSheet<bool>(
                   context: context,
                   isScrollControlled: true,
                   backgroundColor: Colors.transparent,
@@ -259,6 +259,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     settingsService: widget.settingsService,
                   ),
                 );
+                if (mounted && submitted == true) await _loadProfile();
               },
             ),
             Divider(height: 1, color: Colors.grey.shade100, indent: 70),

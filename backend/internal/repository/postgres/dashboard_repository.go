@@ -163,10 +163,11 @@ func (r *DashboardRepository) GetDailyConsumption(ctx context.Context, deviceID 
 
 func (r *DashboardRepository) ListUpcomingTasks(ctx context.Context, petID int64, limit int) ([]domain.CareTask, error) {
 	const query = `
-		SELECT id, pet_id, category, title, subtitle, due_label, due_at, priority, sort_order
-		FROM care_tasks
+		SELECT id, pet_id, category, title, description, due_date, status, priority, sort_order
+		FROM pet_tasks
 		WHERE pet_id = $1
-		ORDER BY sort_order ASC, due_at ASC NULLS LAST, id ASC
+		  AND status = 'pending'
+		ORDER BY due_date ASC NULLS LAST, sort_order ASC, id ASC
 		LIMIT $2
 	`
 
@@ -195,9 +196,9 @@ func (r *DashboardRepository) ListUpcomingTasks(ctx context.Context, petID int64
 
 func (r *DashboardRepository) CreateCareTask(ctx context.Context, petID int64, input domain.CareTaskInput) (domain.CareTask, error) {
 	const query = `
-		INSERT INTO care_tasks (pet_id, category, title, subtitle, due_label, due_at, priority, sort_order)
+		INSERT INTO pet_tasks (pet_id, category, title, description, due_date, status, priority, sort_order)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, pet_id, category, title, subtitle, due_label, due_at, priority, sort_order
+		RETURNING id, pet_id, category, title, description, due_date, status, priority, sort_order
 	`
 
 	task, err := scanCareTaskRow(r.pool.QueryRow(
@@ -206,9 +207,9 @@ func (r *DashboardRepository) CreateCareTask(ctx context.Context, petID int64, i
 		petID,
 		input.Category,
 		input.Title,
-		input.Subtitle,
-		input.DueLabel,
+		input.Description,
 		input.DueAt,
+		input.Status,
 		input.Priority,
 		input.SortOrder,
 	))
@@ -224,23 +225,24 @@ func (r *DashboardRepository) CreateCareTask(ctx context.Context, petID int64, i
 
 func (r *DashboardRepository) UpdateCareTask(ctx context.Context, ownerID, taskID int64, input domain.CareTaskInput) (domain.CareTask, error) {
 	const query = `
-		UPDATE care_tasks
+		UPDATE pet_tasks
 		SET
 			category = $3,
 			title = $4,
-			subtitle = $5,
-			due_label = $6,
-			due_at = $7,
+			description = $5,
+			due_date = $6,
+			status = $7,
 			priority = $8,
-			sort_order = $9
+			sort_order = $9,
+			updated_at = NOW()
 		WHERE id = $1
 		  AND EXISTS (
 			SELECT 1
 			FROM pets
-			WHERE pets.id = care_tasks.pet_id
+			WHERE pets.id = pet_tasks.pet_id
 			  AND pets.owner_id = $2
 		  )
-		RETURNING id, pet_id, category, title, subtitle, due_label, due_at, priority, sort_order
+		RETURNING id, pet_id, category, title, description, due_date, status, priority, sort_order
 	`
 
 	task, err := scanCareTaskRow(r.pool.QueryRow(
@@ -250,9 +252,9 @@ func (r *DashboardRepository) UpdateCareTask(ctx context.Context, ownerID, taskI
 		ownerID,
 		input.Category,
 		input.Title,
-		input.Subtitle,
-		input.DueLabel,
+		input.Description,
 		input.DueAt,
+		input.Status,
 		input.Priority,
 		input.SortOrder,
 	))
@@ -271,12 +273,12 @@ func (r *DashboardRepository) UpdateCareTask(ctx context.Context, ownerID, taskI
 
 func (r *DashboardRepository) DeleteCareTask(ctx context.Context, ownerID, taskID int64) error {
 	const query = `
-		DELETE FROM care_tasks
+		DELETE FROM pet_tasks
 		WHERE id = $1
 		  AND EXISTS (
 			SELECT 1
 			FROM pets
-			WHERE pets.id = care_tasks.pet_id
+			WHERE pets.id = pet_tasks.pet_id
 			  AND pets.owner_id = $2
 		  )
 	`
@@ -289,6 +291,130 @@ func (r *DashboardRepository) DeleteCareTask(ctx context.Context, ownerID, taskI
 		return domain.ErrNotFound
 	}
 	return nil
+}
+
+func (r *DashboardRepository) UpdateCareTaskStatus(ctx context.Context, ownerID, taskID int64, status string) (domain.CareTask, error) {
+	const query = `
+		UPDATE pet_tasks
+		SET status = $3,
+		    updated_at = NOW()
+		WHERE id = $1
+		  AND EXISTS (
+			SELECT 1
+			FROM pets
+			WHERE pets.id = pet_tasks.pet_id
+			  AND pets.owner_id = $2
+		  )
+		RETURNING id, pet_id, category, title, description, due_date, status, priority, sort_order
+	`
+
+	task, err := scanCareTaskRow(r.pool.QueryRow(ctx, query, taskID, ownerID, status))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.CareTask{}, domain.ErrNotFound
+		}
+		return domain.CareTask{}, err
+	}
+	return task, nil
+}
+
+func (r *DashboardRepository) GetLatestVitalSigns(ctx context.Context, petID int64) (domain.VitalSigns, error) {
+	const query = `
+		SELECT id, pet_id, weight_kg, activity_minutes, sleep_hours, recorded_at, created_at
+		FROM pet_vital_signs
+		WHERE pet_id = $1
+		ORDER BY recorded_at DESC, id DESC
+		LIMIT 1
+	`
+
+	var vitals domain.VitalSigns
+	err := r.pool.QueryRow(ctx, query, petID).Scan(
+		&vitals.ID,
+		&vitals.PetID,
+		&vitals.WeightKG,
+		&vitals.ActivityMinutes,
+		&vitals.SleepHours,
+		&vitals.RecordedAt,
+		&vitals.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.VitalSigns{}, domain.ErrNotFound
+		}
+		return domain.VitalSigns{}, err
+	}
+	return vitals, nil
+}
+
+func (r *DashboardRepository) CountOverduePendingTasks(ctx context.Context, petID int64) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM pet_tasks
+		WHERE pet_id = $1
+		  AND status = 'pending'
+		  AND due_date < CURRENT_DATE
+	`
+
+	var count int
+	if err := r.pool.QueryRow(ctx, query, petID).Scan(&count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *DashboardRepository) GetNotificationPreferences(ctx context.Context, ownerID int64) (domain.NotificationPreferences, error) {
+	const query = `
+		SELECT id, alert_low_food, alert_empty_water, alert_feed_success, notification_preferences_updated_at
+		FROM owners
+		WHERE id = $1
+	`
+
+	var preferences domain.NotificationPreferences
+	err := r.pool.QueryRow(ctx, query, ownerID).Scan(
+		&preferences.OwnerID,
+		&preferences.LowFoodAlert,
+		&preferences.EmptyWaterAlert,
+		&preferences.FeedingSuccessReport,
+		&preferences.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.NotificationPreferences{}, domain.ErrNotFound
+		}
+		return domain.NotificationPreferences{}, err
+	}
+	return preferences, nil
+}
+
+func (r *DashboardRepository) ListAlertTasks(ctx context.Context, petID int64, horizonDays int) ([]domain.CareTask, error) {
+	const query = `
+		SELECT id, pet_id, category, title, description, due_date, status, priority, sort_order
+		FROM pet_tasks
+		WHERE pet_id = $1
+		  AND status = 'pending'
+		  AND due_date IS NOT NULL
+		  AND due_date <= CURRENT_DATE + ($2::int * INTERVAL '1 day')
+		ORDER BY due_date ASC, id ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query, petID, horizonDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	tasks := make([]domain.CareTask, 0)
+	for rows.Next() {
+		task, err := scanCareTask(rows)
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return tasks, nil
 }
 
 func (r *DashboardRepository) UpdateDeviceSettings(
@@ -533,14 +659,15 @@ func scanCareTaskRow(row careTaskScanner) (domain.CareTask, error) {
 		&task.PetID,
 		&task.Category,
 		&task.Title,
-		&task.Subtitle,
-		&task.DueLabel,
+		&task.Description,
 		&dueAt,
+		&task.Status,
 		&task.Priority,
 		&task.SortOrder,
 	); err != nil {
 		return domain.CareTask{}, err
 	}
+	task.Subtitle = task.Description
 	if dueAt.Valid {
 		value := dueAt.Time
 		task.DueAt = &value

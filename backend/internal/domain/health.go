@@ -7,6 +7,9 @@ type HealthPet struct {
 	OwnerID              int64
 	DeviceID             string
 	Name                 string
+	WeightKG             float64
+	ActivityMinutes      int
+	SleepHours           float64
 	DailyFeedTargetGrams float64
 }
 
@@ -30,6 +33,15 @@ type VitalSignsInput struct {
 type WellnessScore struct {
 	Score                    int
 	Label                    string
+	RawScore                 float64
+	WeightComponent          float64
+	ActivityComponent        float64
+	SleepComponent           float64
+	TaskPenalty              int
+	OverdueTaskCount         int
+	TargetWeightKG           float64
+	TargetActivityMinutes    int
+	TargetSleepHours         float64
 	AverageDailyFeedGrams    float64
 	DailyFeedTargetGrams     float64
 	ConsumptionPercent       float64

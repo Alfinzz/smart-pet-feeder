@@ -110,10 +110,10 @@ func EnsureDemoProfile(ctx context.Context, db *pgxpool.Pool, owner domain.Owner
 	}
 
 	const taskQuery = `
-		INSERT INTO care_tasks (pet_id, category, title, subtitle, due_label, due_at, priority, sort_order)
+		INSERT INTO pet_tasks (pet_id, category, title, description, due_date, status, priority, sort_order)
 		VALUES
-			($1, 'vaccination', 'Vaccination', 'Annual Rabies Booster', 'Due in 5 days', CURRENT_DATE + 5, 'high', 1),
-			($1, 'checkup', 'Vet Checkup', 'General Wellness Exam', 'Oct 24', NULL, 'normal', 2)
+			($1, 'vaccination', 'Vaccination', 'Annual Rabies Booster', CURRENT_DATE + 5, 'pending', 'high', 1),
+			($1, 'checkup', 'Vet Checkup', 'General Wellness Exam', CURRENT_DATE + 30, 'pending', 'normal', 2)
 		ON CONFLICT DO NOTHING
 	`
 	_, err := db.Exec(ctx, taskQuery, petID)

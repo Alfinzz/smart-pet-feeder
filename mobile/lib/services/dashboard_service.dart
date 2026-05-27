@@ -31,6 +31,23 @@ class DashboardService {
     return HealthSummary.fromJson(response.data!);
   }
 
+  Future<CareTask> markCareTaskCompleted(int taskId) async {
+    final response = await _apiClient.dio.patch<Map<String, dynamic>>(
+      '/health/tasks/$taskId/status',
+      data: {'status': 'completed'},
+    );
+
+    return CareTask.fromJson(response.data!);
+  }
+
+  Future<List<UserAlert>> fetchAlerts() async {
+    final response = await _apiClient.dio.get<Map<String, dynamic>>('/alerts');
+    final items = response.data?['data'] as List<dynamic>? ?? [];
+    return items
+        .map((item) => UserAlert.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<ProfileSummary> fetchProfile() async {
     final response = await _apiClient.dio.get<Map<String, dynamic>>('/profile');
 

@@ -10,6 +10,7 @@ import '../services/control_service.dart';
 import '../services/dashboard_service.dart';
 import '../services/feed_service.dart';
 import '../services/token_storage.dart';
+import '../utils/cache_busted_image_url.dart';
 import '../widgets/feed_history_chart.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -575,6 +576,7 @@ class _HeaderAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmedPhotoUrl = photoUrl.trim();
+    final imageUrl = cacheBustedImageUrl(trimmedPhotoUrl);
 
     return Container(
       width: 50,
@@ -595,7 +597,7 @@ class _HeaderAvatar extends StatelessWidget {
       child: trimmedPhotoUrl.isEmpty
           ? _fallbackIcon()
           : Image.network(
-              trimmedPhotoUrl,
+              imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => _fallbackIcon(),
             ),

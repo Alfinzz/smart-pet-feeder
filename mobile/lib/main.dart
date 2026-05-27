@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
+import 'services/alert_polling_service.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'services/control_service.dart';
@@ -11,8 +12,9 @@ import 'services/feed_service.dart';
 import 'services/settings_service.dart';
 import 'services/token_storage.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AlertPollingService.initialize();
 
   final tokenStorage = TokenStorage();
   final apiClient = ApiClient(tokenStorage);

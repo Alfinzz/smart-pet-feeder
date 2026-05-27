@@ -48,7 +48,7 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 
   Future<void> _showLogVitalsBottomSheet(BuildContext context) async {
-    await showModalBottomSheet(
+    final submitted = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -56,8 +56,40 @@ class _HealthScreenState extends State<HealthScreen> {
           LogVitalsBottomSheet(settingsService: widget.settingsService),
     );
 
-    if (mounted) {
+    if (mounted && submitted == true) {
       await _loadHealth();
+    }
+  }
+
+  Future<bool> _markTaskCompleted(CareTask task) async {
+    try {
+      await widget.dashboardService.markCareTaskCompleted(task.id);
+      if (!mounted) return true;
+      final summary = _summary;
+      if (summary != null) {
+        setState(() {
+          _summary = summary.copyWith(
+            upcomingTasks: summary.upcomingTasks
+                .where((item) => item.id != task.id)
+                .toList(),
+          );
+        });
+      }
+      await _loadHealth();
+      if (!mounted) return true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${task.title} marked completed.')),
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to update task: ${error.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
     }
   }
 
@@ -295,17 +327,39 @@ class _HealthScreenState extends State<HealthScreen> {
           else
             ...tasks.map((task) {
               final style = _taskStyle(task.category, task.priority);
+              final taskItem = _buildTaskItem(
+                icon: style.icon,
+                iconColor: style.iconColor,
+                iconBgColor: style.iconBgColor,
+                title: task.title,
+                subtitle: task.subtitle,
+                trailing: task.displayDueLabel,
+                trailingColor: task.isDueWithinSevenDays
+                    ? const Color(0xFFEF4444)
+                    : style.trailingColor,
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _buildTaskItem(
-                  icon: style.icon,
-                  iconColor: style.iconColor,
-                  iconBgColor: style.iconBgColor,
-                  title: task.title,
-                  subtitle: task.subtitle,
-                  trailing: task.dueLabel,
-                  trailingColor: style.trailingColor,
-                ),
+                child: task.id <= 0
+                    ? taskItem
+                    : Dismissible(
+                        key: ValueKey('care-task-${task.id}'),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (_) => _markTaskCompleted(task),
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: Colors.white,
+                          ),
+                        ),
+                        child: taskItem,
+                      ),
               );
             }),
         ],

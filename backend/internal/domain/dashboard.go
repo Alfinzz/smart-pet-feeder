@@ -89,25 +89,28 @@ type HealthVitals struct {
 }
 
 type CareTask struct {
-	ID        int64
-	PetID     int64
-	Category  string
-	Title     string
-	Subtitle  string
-	DueLabel  string
-	DueAt     *time.Time
-	Priority  string
-	SortOrder int
+	ID          int64
+	PetID       int64
+	Category    string
+	Title       string
+	Subtitle    string
+	Description string
+	DueLabel    string
+	DueAt       *time.Time
+	Status      string
+	Priority    string
+	SortOrder   int
 }
 
 type CareTaskInput struct {
-	Category  string
-	Title     string
-	Subtitle  string
-	DueLabel  string
-	DueAt     *time.Time
-	Priority  string
-	SortOrder int
+	Category    string
+	Title       string
+	Description string
+	DueLabel    string
+	DueAt       *time.Time
+	Status      string
+	Priority    string
+	SortOrder   int
 }
 
 type HealthSummary struct {
@@ -124,4 +127,13 @@ type ProfileSummary struct {
 	Owner  OwnerProfile
 	Pet    PetProfile
 	Device DeviceStatus
+}
+
+type UserAlert struct {
+	ID       string
+	Type     string
+	Title    string
+	Message  string
+	Severity string
+	DueAt    *time.Time
 }

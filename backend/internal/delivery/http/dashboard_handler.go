@@ -34,13 +34,20 @@ type updateDeviceSettingsRequest struct {
 }
 
 type careTaskRequest struct {
-	Category  string `json:"category" binding:"required"`
-	Title     string `json:"title" binding:"required"`
-	Subtitle  string `json:"subtitle" binding:"required"`
-	DueLabel  string `json:"due_label" binding:"required"`
-	DueAt     string `json:"due_at"`
-	Priority  string `json:"priority"`
-	SortOrder int    `json:"sort_order"`
+	Category    string `json:"category" binding:"required"`
+	Title       string `json:"title" binding:"required"`
+	Subtitle    string `json:"subtitle"`
+	Description string `json:"description"`
+	DueLabel    string `json:"due_label"`
+	DueAt       string `json:"due_at"`
+	DueDate     string `json:"due_date"`
+	Status      string `json:"status"`
+	Priority    string `json:"priority"`
+	SortOrder   int    `json:"sort_order"`
+}
+
+type careTaskStatusRequest struct {
+	Status string `json:"status" binding:"required"`
 }
 
 func (h *Handler) getDashboardOverview(c *gin.Context) {
@@ -270,6 +277,33 @@ func (h *Handler) updateCareTask(c *gin.Context) {
 	c.JSON(http.StatusOK, careTaskResponse(task))
 }
 
+func (h *Handler) updateCareTaskStatus(c *gin.Context) {
+	ownerID, ok := ownerIDFromContext(c)
+	if !ok {
+		respondUsecaseError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	taskID, ok := parseTaskID(c)
+	if !ok {
+		return
+	}
+
+	var req careTaskStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusBadRequest, "status is required")
+		return
+	}
+
+	task, err := h.dashboard.UpdateCareTaskStatus(c.Request.Context(), ownerID, taskID, req.Status)
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, careTaskResponse(task))
+}
+
 func (h *Handler) deleteCareTask(c *gin.Context) {
 	ownerID, ok := ownerIDFromContext(c)
 	if !ok {
@@ -308,6 +342,27 @@ func (h *Handler) getProfile(c *gin.Context) {
 		"pet":    h.petProfileResponse(c, profile.Pet),
 		"device": deviceStatusResponse(profile.Device),
 	})
+}
+
+func (h *Handler) listAlerts(c *gin.Context) {
+	ownerID, ok := ownerIDFromContext(c)
+	if !ok {
+		respondUsecaseError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	alerts, err := h.dashboard.ListAlerts(c.Request.Context(), ownerID)
+	if err != nil {
+		respondUsecaseError(c, err)
+		return
+	}
+
+	items := make([]gin.H, 0, len(alerts))
+	for _, alert := range alerts {
+		items = append(items, userAlertResponse(alert))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": items})
 }
 
 func ownerProfileResponse(owner domain.OwnerProfile) gin.H {
@@ -356,40 +411,61 @@ func careTaskResponse(task domain.CareTask) gin.H {
 	if task.DueAt != nil {
 		dueAt = task.DueAt.Format("2006-01-02")
 	}
+	dueLabel := task.DueLabel
+	if dueLabel == "" {
+		dueLabel = careTaskDueLabel(task.DueAt)
+	}
+	description := task.Description
+	if description == "" {
+		description = task.Subtitle
+	}
 	return gin.H{
-		"id":         task.ID,
-		"pet_id":     task.PetID,
-		"category":   task.Category,
-		"title":      task.Title,
-		"subtitle":   task.Subtitle,
-		"due_label":  task.DueLabel,
-		"due_at":     dueAt,
-		"priority":   task.Priority,
-		"sort_order": task.SortOrder,
+		"id":          task.ID,
+		"pet_id":      task.PetID,
+		"category":    task.Category,
+		"title":       task.Title,
+		"subtitle":    description,
+		"description": description,
+		"due_label":   dueLabel,
+		"due_at":      dueAt,
+		"due_date":    dueAt,
+		"status":      task.Status,
+		"priority":    task.Priority,
+		"sort_order":  task.SortOrder,
 	}
 }
 
 func bindCareTaskInput(c *gin.Context) (domain.CareTaskInput, bool) {
 	var req careTaskRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "category, title, subtitle, and due_label are required")
+		respondError(c, http.StatusBadRequest, "category and title are required")
 		return domain.CareTaskInput{}, false
 	}
 
-	dueAt, ok := parseOptionalDate(req.DueAt)
+	dueValue := req.DueDate
+	if dueValue == "" {
+		dueValue = req.DueAt
+	}
+	dueAt, ok := parseOptionalDate(dueValue)
 	if !ok {
-		respondError(c, http.StatusBadRequest, "due_at must use YYYY-MM-DD format")
+		respondError(c, http.StatusBadRequest, "due_date must use YYYY-MM-DD format")
 		return domain.CareTaskInput{}, false
+	}
+
+	description := req.Description
+	if description == "" {
+		description = req.Subtitle
 	}
 
 	return domain.CareTaskInput{
-		Category:  req.Category,
-		Title:     req.Title,
-		Subtitle:  req.Subtitle,
-		DueLabel:  req.DueLabel,
-		DueAt:     dueAt,
-		Priority:  req.Priority,
-		SortOrder: req.SortOrder,
+		Category:    req.Category,
+		Title:       req.Title,
+		Description: description,
+		DueLabel:    req.DueLabel,
+		DueAt:       dueAt,
+		Status:      req.Status,
+		Priority:    req.Priority,
+		SortOrder:   req.SortOrder,
 	}, true
 }
 
@@ -411,4 +487,41 @@ func parseOptionalDate(value string) (*time.Time, bool) {
 		return nil, false
 	}
 	return &parsed, true
+}
+
+func careTaskDueLabel(dueAt *time.Time) string {
+	if dueAt == nil {
+		return ""
+	}
+	today := time.Now()
+	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, today.Location())
+	dueDate := time.Date(dueAt.Year(), dueAt.Month(), dueAt.Day(), 0, 0, 0, 0, today.Location())
+	days := int(dueDate.Sub(today).Hours() / 24)
+	switch {
+	case days < 0:
+		return "Overdue"
+	case days == 0:
+		return "Due today"
+	case days == 1:
+		return "Due in 1 day"
+	case days <= 7:
+		return "Due in " + strconv.Itoa(days) + " days"
+	default:
+		return dueAt.Format("Jan 2")
+	}
+}
+
+func userAlertResponse(alert domain.UserAlert) gin.H {
+	var dueAt any
+	if alert.DueAt != nil {
+		dueAt = alert.DueAt.Format("2006-01-02")
+	}
+	return gin.H{
+		"id":       alert.ID,
+		"type":     alert.Type,
+		"title":    alert.Title,
+		"message":  alert.Message,
+		"severity": alert.Severity,
+		"due_date": dueAt,
+	}
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/cache_busted_image_url.dart';
 
 class PetPhotoAvatar extends StatelessWidget {
   const PetPhotoAvatar({
@@ -23,6 +24,7 @@ class PetPhotoAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final trimmedPhotoUrl = photoUrl.trim();
+    final imageUrl = cacheBustedImageUrl(trimmedPhotoUrl);
 
     return Semantics(
       button: onTap != null,
@@ -55,7 +57,7 @@ class PetPhotoAvatar extends StatelessWidget {
                 child: trimmedPhotoUrl.isEmpty
                     ? _fallbackIcon()
                     : Image.network(
-                        trimmedPhotoUrl,
+                        imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             _fallbackIcon(),

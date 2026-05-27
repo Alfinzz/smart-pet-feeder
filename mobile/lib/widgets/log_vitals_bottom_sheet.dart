@@ -44,7 +44,7 @@ class _LogVitalsBottomSheetState extends State<LogVitalsBottomSheet> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context); // Close bottom sheet
+      Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

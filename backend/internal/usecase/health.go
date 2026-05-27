@@ -12,6 +12,7 @@ import (
 
 type HealthRepository interface {
 	AverageDailyFeedConsumption(ctx context.Context, deviceID string, days int) (float64, error)
+	CountOverduePendingTasks(ctx context.Context, petID int64) (int, error)
 	GetPrimaryHealthPet(ctx context.Context, ownerID int64) (domain.HealthPet, error)
 	GetLatestVitalSigns(ctx context.Context, petID int64) (domain.VitalSigns, error)
 	GetPreviousVitalSigns(ctx context.Context, petID, latestID int64) (domain.VitalSigns, error)
@@ -101,67 +102,96 @@ func (u *HealthUsecase) buildOverview(ctx context.Context, pet domain.HealthPet,
 		}
 	}
 
-	var currentWeight *float64
-	var previousWeight *float64
-	if vitals != nil {
-		currentWeight = &vitals.WeightKG
-		previous, err := u.repo.GetPreviousVitalSigns(ctx, pet.ID, vitals.ID)
-		if err != nil && !errors.Is(err, domain.ErrNotFound) {
-			return domain.HealthOverview{}, err
-		}
-		if err == nil {
-			previousWeight = &previous.WeightKG
+	scoreVitals := vitals
+	if scoreVitals == nil && (pet.WeightKG > 0 || pet.ActivityMinutes > 0 || pet.SleepHours > 0) {
+		scoreVitals = &domain.VitalSigns{
+			PetID:           pet.ID,
+			WeightKG:        pet.WeightKG,
+			ActivityMinutes: pet.ActivityMinutes,
+			SleepHours:      pet.SleepHours,
 		}
 	}
+
+	overdueTasks, err := u.repo.CountOverduePendingTasks(ctx, pet.ID)
+	if err != nil {
+		return domain.HealthOverview{}, err
+	}
+
+	score := CalculateSAWHealthScore(scoreVitals, pet.WeightKG, overdueTasks)
+	score.AverageDailyFeedGrams = avgFeed
+	score.DailyFeedTargetGrams = pet.DailyFeedTargetGrams
 
 	return domain.HealthOverview{
 		Pet:           pet,
 		Vitals:        vitals,
-		WellnessScore: CalculateWellnessScore(avgFeed, pet.DailyFeedTargetGrams, currentWeight, previousWeight),
+		WellnessScore: score,
 	}, nil
 }
 
-func CalculateWellnessScore(avgFeed, targetFeed float64, currentWeight, previousWeight *float64) domain.WellnessScore {
-	if targetFeed <= 0 {
-		targetFeed = defaultDailyFeedTargetGrams
-	}
+const (
+	defaultTargetActivityMinutes = 30
+	defaultTargetSleepHours      = 10
+	overdueTaskPenaltyPoints     = 15
+)
 
-	consumptionPercent := (avgFeed / targetFeed) * 100
-	consumptionComponent := 100 - math.Abs(100-consumptionPercent)*1.2
-	if consumptionPercent < 60 {
-		consumptionComponent = consumptionPercent * 0.9
-	}
-	if consumptionPercent > 130 {
-		consumptionComponent = 70 - (consumptionPercent-130)*0.5
-	}
-	consumptionComponent = clampFloat(consumptionComponent, 0, 100)
+func CalculateSAWHealthScore(vitals *domain.VitalSigns, targetWeightKG float64, overdueTaskCount int) domain.WellnessScore {
+	targetActivityMinutes := defaultTargetActivityMinutes
+	targetSleepHours := float64(defaultTargetSleepHours)
 
-	weightComponent := 85.0
-	if currentWeight != nil && previousWeight != nil && *previousWeight > 0 {
-		changePercent := math.Abs(*currentWeight-*previousWeight) / *previousWeight * 100
-		switch {
-		case changePercent <= 2:
-			weightComponent = 100
-		case changePercent <= 5:
-			weightComponent = 82
-		case changePercent <= 10:
-			weightComponent = 55
-		default:
-			weightComponent = 30
+	if vitals == nil {
+		score := 0
+		return domain.WellnessScore{
+			Score:                 score,
+			Label:                 wellnessLabel(score),
+			RawScore:              0,
+			TaskPenalty:           maxInt(overdueTaskCount, 0) * overdueTaskPenaltyPoints,
+			OverdueTaskCount:      maxInt(overdueTaskCount, 0),
+			TargetWeightKG:        targetWeightKG,
+			TargetActivityMinutes: targetActivityMinutes,
+			TargetSleepHours:      targetSleepHours,
 		}
 	}
 
-	scoreValue := consumptionComponent*0.7 + weightComponent*0.3
-	score := int(math.Round(clampFloat(scoreValue, 0, 100)))
-	return domain.WellnessScore{
-		Score:                    score,
-		Label:                    wellnessLabel(score),
-		AverageDailyFeedGrams:    avgFeed,
-		DailyFeedTargetGrams:     targetFeed,
-		ConsumptionPercent:       consumptionPercent,
-		ConsumptionComponent:     consumptionComponent,
-		WeightStabilityComponent: weightComponent,
+	if targetWeightKG <= 0 {
+		targetWeightKG = vitals.WeightKG
 	}
+
+	weightComponent := closenessComponent(vitals.WeightKG, targetWeightKG)
+	activityComponent := benefitComponent(float64(vitals.ActivityMinutes), float64(targetActivityMinutes))
+	sleepComponent := closenessComponent(vitals.SleepHours, targetSleepHours)
+	rawScore := weightComponent*0.40 + activityComponent*0.35 + sleepComponent*0.25
+	overdueTaskCount = maxInt(overdueTaskCount, 0)
+	penalty := overdueTaskCount * overdueTaskPenaltyPoints
+	finalScore := clampFloat(rawScore-float64(penalty), 0, 100)
+	score := int(math.Round(finalScore))
+
+	return domain.WellnessScore{
+		Score:                 score,
+		Label:                 wellnessLabel(score),
+		RawScore:              rawScore,
+		WeightComponent:       weightComponent,
+		ActivityComponent:     activityComponent,
+		SleepComponent:        sleepComponent,
+		TaskPenalty:           penalty,
+		OverdueTaskCount:      overdueTaskCount,
+		TargetWeightKG:        targetWeightKG,
+		TargetActivityMinutes: targetActivityMinutes,
+		TargetSleepHours:      targetSleepHours,
+	}
+}
+
+func closenessComponent(value, target float64) float64 {
+	if value <= 0 || target <= 0 {
+		return 0
+	}
+	return clampFloat(100-(math.Abs(value-target)/target*100), 0, 100)
+}
+
+func benefitComponent(value, target float64) float64 {
+	if value <= 0 || target <= 0 {
+		return 0
+	}
+	return clampFloat((value/target)*100, 0, 100)
 }
 
 func clampFloat(value, min, max float64) float64 {
@@ -185,4 +215,43 @@ func wellnessLabel(score int) string {
 	default:
 		return "Needs Attention"
 	}
+}
+
+func healthHeadline(score int, overdueTaskCount int) string {
+	if overdueTaskCount > 0 {
+		return "Care Tasks Overdue"
+	}
+	switch {
+	case score >= 85:
+		return "Optimal Wellness"
+	case score >= 70:
+		return "Healthy Routine"
+	case score >= 50:
+		return "Needs Monitoring"
+	default:
+		return "Needs Attention"
+	}
+}
+
+func healthDescription(score int, overdueTaskCount int) string {
+	if overdueTaskCount > 0 {
+		return "Complete overdue medical tasks to restore the health score."
+	}
+	switch {
+	case score >= 85:
+		return "Weight, activity, and sleep are close to the ideal targets."
+	case score >= 70:
+		return "Most health metrics are on track. Keep the routine consistent."
+	case score >= 50:
+		return "Some vitals are outside target range. Review activity and rest."
+	default:
+		return "Vitals are far from target range. Consider checking your pet care routine."
+	}
+}
+
+func maxInt(value, min int) int {
+	if value < min {
+		return min
+	}
+	return value
 }

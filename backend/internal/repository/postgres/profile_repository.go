@@ -253,23 +253,23 @@ func (r *ProfileRepository) CalibrateDevice(ctx context.Context, ownerID int64) 
 
 func (r *ProfileRepository) GetNotificationPreferences(ctx context.Context, ownerID int64) (domain.NotificationPreferences, error) {
 	const query = `
-		SELECT owner_id, low_food_alert, empty_water_alert, feeding_success_report, updated_at
-		FROM notification_preferences
-		WHERE owner_id = $1
+		SELECT id, alert_low_food, alert_empty_water, alert_feed_success, notification_preferences_updated_at
+		FROM owners
+		WHERE id = $1
 	`
 	return r.scanNotificationPreferences(ctx, query, ownerID)
 }
 
 func (r *ProfileRepository) UpsertNotificationPreferences(ctx context.Context, ownerID int64, input domain.NotificationPreferencesInput) (domain.NotificationPreferences, error) {
 	const query = `
-		INSERT INTO notification_preferences (owner_id, low_food_alert, empty_water_alert, feeding_success_report)
-		VALUES ($1, $2, $3, $4)
-		ON CONFLICT (owner_id) DO UPDATE SET
-			low_food_alert = EXCLUDED.low_food_alert,
-			empty_water_alert = EXCLUDED.empty_water_alert,
-			feeding_success_report = EXCLUDED.feeding_success_report,
-			updated_at = NOW()
-		RETURNING owner_id, low_food_alert, empty_water_alert, feeding_success_report, updated_at
+		UPDATE owners
+		SET
+			alert_low_food = $2,
+			alert_empty_water = $3,
+			alert_feed_success = $4,
+			notification_preferences_updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, alert_low_food, alert_empty_water, alert_feed_success, notification_preferences_updated_at
 	`
 	return r.scanNotificationPreferences(
 		ctx,

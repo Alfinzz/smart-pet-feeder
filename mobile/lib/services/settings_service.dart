@@ -87,7 +87,7 @@ class SettingsService {
   Future<Map<String, dynamic>> fetchNotificationPreferences() async {
     try {
       final response = await _apiClient.dio.get<Map<String, dynamic>>(
-        '/profile/notification-preferences',
+        '/user/notifications/prefs',
       );
       return response.data ?? {};
     } on DioException catch (e) {
@@ -99,14 +99,21 @@ class SettingsService {
 
   Future<void> updateNotificationPreferences(Map<String, dynamic> data) async {
     try {
-      await _apiClient.dio.put(
-        '/profile/notification-preferences',
+      await _apiClient.dio.patch(
+        '/user/notifications/prefs',
         data: {
-          'low_food_alert':
-              data['low_food_alert'] ?? data['lowFoodAlert'] ?? false,
-          'empty_water_alert':
-              data['empty_water_alert'] ?? data['emptyWaterAlert'] ?? false,
-          'feeding_success_report':
+          'alert_low_food':
+              data['alert_low_food'] ??
+              data['low_food_alert'] ??
+              data['lowFoodAlert'] ??
+              false,
+          'alert_empty_water':
+              data['alert_empty_water'] ??
+              data['empty_water_alert'] ??
+              data['emptyWaterAlert'] ??
+              false,
+          'alert_feed_success':
+              data['alert_feed_success'] ??
               data['feeding_success_report'] ??
               data['feedSuccessReport'] ??
               false,

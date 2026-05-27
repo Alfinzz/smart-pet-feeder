@@ -16,14 +16,19 @@ const (
 )
 
 type DashboardRepository interface {
+	CountOverduePendingTasks(ctx context.Context, petID int64) (int, error)
 	CreateCareTask(ctx context.Context, petID int64, input domain.CareTaskInput) (domain.CareTask, error)
 	DeleteCareTask(ctx context.Context, ownerID, taskID int64) error
 	GetOwner(ctx context.Context, ownerID int64) (domain.OwnerProfile, error)
 	GetPetProfile(ctx context.Context, ownerID int64) (domain.PetProfile, error)
 	GetDeviceStatus(ctx context.Context, deviceID string) (domain.DeviceStatus, error)
 	GetDailyConsumption(ctx context.Context, deviceID string, days int) ([]domain.DailyConsumption, error)
+	GetLatestVitalSigns(ctx context.Context, petID int64) (domain.VitalSigns, error)
+	GetNotificationPreferences(ctx context.Context, ownerID int64) (domain.NotificationPreferences, error)
+	ListAlertTasks(ctx context.Context, petID int64, horizonDays int) ([]domain.CareTask, error)
 	ListUpcomingTasks(ctx context.Context, petID int64, limit int) ([]domain.CareTask, error)
 	UpdateCareTask(ctx context.Context, ownerID, taskID int64, input domain.CareTaskInput) (domain.CareTask, error)
+	UpdateCareTaskStatus(ctx context.Context, ownerID, taskID int64, status string) (domain.CareTask, error)
 	UpdateDeviceSettings(ctx context.Context, deviceID, name string, foodStockPercent *float64, waterAvailable *bool, waterStatus string) (domain.DeviceStatus, error)
 	UpdatePetPhoto(ctx context.Context, ownerID int64, photoPath string) (domain.PetProfile, string, error)
 	UpsertPetProfile(ctx context.Context, ownerID int64, input domain.PetProfileUpdate) (domain.PetProfile, error)
@@ -106,7 +111,7 @@ func (u *DashboardUsecase) GetHealthSummary(ctx context.Context, ownerID int64) 
 
 	tasks := []domain.CareTask(nil)
 	if pet.ID > 0 {
-		tasks, err = u.repo.ListUpcomingTasks(ctx, pet.ID, 2)
+		tasks, err = u.repo.ListUpcomingTasks(ctx, pet.ID, 10)
 		if err != nil && !errors.Is(err, domain.ErrNotFound) {
 			return domain.HealthSummary{}, err
 		}
@@ -115,20 +120,48 @@ func (u *DashboardUsecase) GetHealthSummary(ctx context.Context, ownerID int64) 
 		tasks = defaultCareTasks()
 	}
 
+	vitals := domain.HealthVitals{
+		WeightKG:        pet.WeightKG,
+		ActivityMinutes: pet.ActivityMinutes,
+		SleepHours:      pet.SleepHours,
+	}
+	scoreVitals := &domain.VitalSigns{
+		PetID:           pet.ID,
+		WeightKG:        vitals.WeightKG,
+		ActivityMinutes: vitals.ActivityMinutes,
+		SleepHours:      vitals.SleepHours,
+	}
+	if pet.ID > 0 {
+		latest, err := u.repo.GetLatestVitalSigns(ctx, pet.ID)
+		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+			return domain.HealthSummary{}, err
+		}
+		if err == nil {
+			vitals = domain.HealthVitals{
+				WeightKG:        latest.WeightKG,
+				ActivityMinutes: latest.ActivityMinutes,
+				SleepHours:      latest.SleepHours,
+			}
+			scoreVitals = &latest
+		}
+	}
+
+	overdueTaskCount := 0
+	if pet.ID > 0 {
+		overdueTaskCount, err = u.repo.CountOverduePendingTasks(ctx, pet.ID)
+		if err != nil {
+			return domain.HealthSummary{}, err
+		}
+	}
+	score := CalculateSAWHealthScore(scoreVitals, pet.WeightKG, overdueTaskCount)
+
 	return domain.HealthSummary{
-		Pet:         pet,
-		Score:       pet.HealthScore,
-		StatusLabel: statusOrDefault(pet.HealthStatus, "Excellent"),
-		Headline:    statusOrDefault(pet.HealthHeadline, "Optimal Wellness"),
-		Description: statusOrDefault(
-			pet.HealthDescription,
-			"Your pet health metrics are stable this week. Keep maintaining the current diet and activity routines.",
-		),
-		Vitals: domain.HealthVitals{
-			WeightKG:        pet.WeightKG,
-			ActivityMinutes: pet.ActivityMinutes,
-			SleepHours:      pet.SleepHours,
-		},
+		Pet:           pet,
+		Score:         score.Score,
+		StatusLabel:   score.Label,
+		Headline:      healthHeadline(score.Score, score.OverdueTaskCount),
+		Description:   healthDescription(score.Score, score.OverdueTaskCount),
+		Vitals:        vitals,
 		UpcomingTasks: tasks,
 	}, nil
 }
@@ -291,11 +324,92 @@ func (u *DashboardUsecase) UpdateCareTask(ctx context.Context, ownerID, taskID i
 	return u.repo.UpdateCareTask(ctx, ownerID, taskID, input)
 }
 
+func (u *DashboardUsecase) UpdateCareTaskStatus(ctx context.Context, ownerID, taskID int64, status string) (domain.CareTask, error) {
+	if taskID <= 0 {
+		return domain.CareTask{}, fmt.Errorf("%w: task_id is required", domain.ErrValidation)
+	}
+	status = strings.TrimSpace(status)
+	if status != "pending" && status != "completed" {
+		return domain.CareTask{}, fmt.Errorf("%w: status must be pending or completed", domain.ErrValidation)
+	}
+	return u.repo.UpdateCareTaskStatus(ctx, ownerID, taskID, status)
+}
+
 func (u *DashboardUsecase) DeleteCareTask(ctx context.Context, ownerID, taskID int64) error {
 	if taskID <= 0 {
 		return fmt.Errorf("%w: task_id is required", domain.ErrValidation)
 	}
 	return u.repo.DeleteCareTask(ctx, ownerID, taskID)
+}
+
+func (u *DashboardUsecase) ListAlerts(ctx context.Context, ownerID int64) ([]domain.UserAlert, error) {
+	pet, device, err := u.getPetAndDevice(ctx, ownerID)
+	if err != nil {
+		return nil, err
+	}
+
+	preferences, err := u.repo.GetNotificationPreferences(ctx, ownerID)
+	if err != nil {
+		if !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+		preferences = domain.NotificationPreferences{
+			OwnerID:              ownerID,
+			LowFoodAlert:         true,
+			EmptyWaterAlert:      true,
+			FeedingSuccessReport: true,
+		}
+	}
+
+	alerts := make([]domain.UserAlert, 0)
+	if preferences.LowFoodAlert && device.FoodStockPercent < 10 {
+		alerts = append(alerts, domain.UserAlert{
+			ID:       fmt.Sprintf("low-food-%s", device.ID),
+			Type:     "low_food",
+			Title:    "Food is running low",
+			Message:  fmt.Sprintf("Food stock is %.0f%%. Refill the hopper soon.", device.FoodStockPercent),
+			Severity: "warning",
+		})
+	}
+	if preferences.EmptyWaterAlert && (!device.WaterAvailable || strings.EqualFold(device.WaterStatus, "empty") || strings.EqualFold(device.WaterStatus, "unavailable")) {
+		alerts = append(alerts, domain.UserAlert{
+			ID:       fmt.Sprintf("empty-water-%s", device.ID),
+			Type:     "empty_water",
+			Title:    "Water needs attention",
+			Message:  "The water bowl is empty or unavailable.",
+			Severity: "critical",
+		})
+	}
+	if pet.ID > 0 {
+		tasks, err := u.repo.ListAlertTasks(ctx, pet.ID, 7)
+		if err != nil {
+			return nil, err
+		}
+		now := currentDate()
+		for _, task := range tasks {
+			if task.DueAt == nil {
+				continue
+			}
+			dueDate := time.Date(task.DueAt.Year(), task.DueAt.Month(), task.DueAt.Day(), 0, 0, 0, 0, now.Location())
+			daysUntil := int(dueDate.Sub(now).Hours() / 24)
+			message := fmt.Sprintf("%s is due in %d days.", task.Title, daysUntil)
+			severity := "info"
+			if daysUntil < 0 {
+				message = fmt.Sprintf("%s is overdue.", task.Title)
+				severity = "critical"
+			}
+			alerts = append(alerts, domain.UserAlert{
+				ID:       fmt.Sprintf("task-%d", task.ID),
+				Type:     "medical_task",
+				Title:    task.Title,
+				Message:  message,
+				Severity: severity,
+				DueAt:    task.DueAt,
+			})
+		}
+	}
+
+	return alerts, nil
 }
 
 func (u *DashboardUsecase) getPetAndDevice(ctx context.Context, ownerID int64) (domain.PetProfile, domain.DeviceStatus, error) {
@@ -468,22 +582,26 @@ func statusOrDefault(value, fallback string) string {
 func defaultCareTasks() []domain.CareTask {
 	return []domain.CareTask{
 		{
-			ID:        1,
-			Category:  "vaccination",
-			Title:     "Vaccination",
-			Subtitle:  "Annual Rabies Booster",
-			DueLabel:  "Due in 5 days",
-			Priority:  "high",
-			SortOrder: 1,
+			ID:          -1,
+			Category:    "vaccination",
+			Title:       "Vaccination",
+			Subtitle:    "Annual Rabies Booster",
+			Description: "Annual Rabies Booster",
+			DueLabel:    "Due in 5 days",
+			Status:      "pending",
+			Priority:    "high",
+			SortOrder:   1,
 		},
 		{
-			ID:        2,
-			Category:  "checkup",
-			Title:     "Vet Checkup",
-			Subtitle:  "General Wellness Exam",
-			DueLabel:  "Oct 24",
-			Priority:  "normal",
-			SortOrder: 2,
+			ID:          -2,
+			Category:    "checkup",
+			Title:       "Vet Checkup",
+			Subtitle:    "General Wellness Exam",
+			Description: "General Wellness Exam",
+			DueLabel:    "Oct 24",
+			Status:      "pending",
+			Priority:    "normal",
+			SortOrder:   2,
 		},
 	}
 }
@@ -491,8 +609,9 @@ func defaultCareTasks() []domain.CareTask {
 func validateCareTaskInput(input domain.CareTaskInput) (domain.CareTaskInput, error) {
 	input.Category = strings.TrimSpace(input.Category)
 	input.Title = strings.TrimSpace(input.Title)
-	input.Subtitle = strings.TrimSpace(input.Subtitle)
+	input.Description = strings.TrimSpace(input.Description)
 	input.DueLabel = strings.TrimSpace(input.DueLabel)
+	input.Status = strings.TrimSpace(input.Status)
 	input.Priority = strings.TrimSpace(input.Priority)
 	if input.Category == "" {
 		return domain.CareTaskInput{}, fmt.Errorf("%w: category is required", domain.ErrValidation)
@@ -500,14 +619,22 @@ func validateCareTaskInput(input domain.CareTaskInput) (domain.CareTaskInput, er
 	if input.Title == "" {
 		return domain.CareTaskInput{}, fmt.Errorf("%w: title is required", domain.ErrValidation)
 	}
-	if input.Subtitle == "" {
-		return domain.CareTaskInput{}, fmt.Errorf("%w: subtitle is required", domain.ErrValidation)
+	if input.Description == "" {
+		return domain.CareTaskInput{}, fmt.Errorf("%w: description is required", domain.ErrValidation)
 	}
-	if input.DueLabel == "" {
-		return domain.CareTaskInput{}, fmt.Errorf("%w: due_label is required", domain.ErrValidation)
+	if input.Status == "" {
+		input.Status = "pending"
+	}
+	if input.Status != "pending" && input.Status != "completed" {
+		return domain.CareTaskInput{}, fmt.Errorf("%w: status must be pending or completed", domain.ErrValidation)
 	}
 	if input.Priority == "" {
 		input.Priority = "normal"
 	}
 	return input, nil
+}
+
+func currentDate() time.Time {
+	now := time.Now()
+	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 }
