@@ -10,6 +10,7 @@ class PetProfile {
     required this.species,
     required this.breed,
     required this.ageYears,
+    required this.ageInMonths,
     required this.weightKg,
     required this.dailyFeedTargetGrams,
     required this.healthScore,
@@ -28,6 +29,7 @@ class PetProfile {
   final String species;
   final String breed;
   final int ageYears;
+  final int ageInMonths;
   final double weightKg;
   final double dailyFeedTargetGrams;
   final int healthScore;
@@ -39,6 +41,7 @@ class PetProfile {
   final String photoUrl;
 
   factory PetProfile.fromJson(Map<String, dynamic> json) {
+    final ageYears = (json['age_years'] as num?)?.toInt() ?? 0;
     return PetProfile(
       id: (json['id'] as num?)?.toInt() ?? 0,
       ownerId: (json['owner_id'] as num?)?.toInt() ?? 0,
@@ -46,7 +49,8 @@ class PetProfile {
       name: json['name'] as String? ?? 'Fluffy',
       species: json['species'] as String? ?? 'Dog',
       breed: json['breed'] as String? ?? 'Golden Retriever',
-      ageYears: (json['age_years'] as num?)?.toInt() ?? 0,
+      ageYears: ageYears,
+      ageInMonths: (json['age_in_months'] as num?)?.toInt() ?? ageYears * 12,
       weightKg: (json['weight_kg'] as num?)?.toDouble() ?? 0,
       dailyFeedTargetGrams:
           (json['daily_feed_target_grams'] as num?)?.toDouble() ?? 150,

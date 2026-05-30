@@ -64,6 +64,7 @@ class _HealthScreenState extends State<HealthScreen> {
   Future<bool> _markTaskCompleted(CareTask task) async {
     try {
       await widget.dashboardService.markCareTaskCompleted(task.id);
+      await _createNextTaskIfNeeded(task);
       if (!mounted) return true;
       final summary = _summary;
       if (summary != null) {
@@ -91,6 +92,18 @@ class _HealthScreenState extends State<HealthScreen> {
       );
       return false;
     }
+  }
+
+  Future<void> _createNextTaskIfNeeded(CareTask task) async {
+    final dueDate = _nextDueDateForTask(task, _summary?.pet.ageInMonths ?? 0);
+    if (dueDate == null) return;
+    await widget.dashboardService.createCareTask(
+      category: task.category,
+      title: task.title,
+      description: task.description.isEmpty ? task.title : task.description,
+      dueDate: dueDate,
+      priority: task.priority,
+    );
   }
 
   @override
@@ -488,6 +501,23 @@ class _HealthScreenState extends State<HealthScreen> {
       ),
     );
   }
+}
+
+DateTime? _nextDueDateForTask(CareTask task, int ageInMonths) {
+  final category = task.category.toLowerCase();
+  final title = task.title.toLowerCase();
+  if (category == 'vaccination' ||
+      category == 'vaccine' ||
+      title.contains('vaksin') ||
+      title.contains('vaccin')) {
+    return DateTime.now().add(Duration(days: ageInMonths < 4 ? 21 : 365));
+  }
+  if (category == 'checkup' ||
+      title.contains('medical checkup') ||
+      title.contains('vet checkup')) {
+    return DateTime.now().add(const Duration(days: 180));
+  }
+  return null;
 }
 
 _TaskStyle _taskStyle(String category, String priority) {

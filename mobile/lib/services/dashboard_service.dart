@@ -40,6 +40,29 @@ class DashboardService {
     return CareTask.fromJson(response.data!);
   }
 
+  Future<CareTask> createCareTask({
+    required String category,
+    required String title,
+    required String description,
+    required DateTime dueDate,
+    String status = 'pending',
+    String priority = 'normal',
+  }) async {
+    final response = await _apiClient.dio.post<Map<String, dynamic>>(
+      '/health/tasks',
+      data: {
+        'category': category,
+        'title': title,
+        'description': description,
+        'due_date': _formatApiDate(dueDate),
+        'status': status,
+        'priority': priority,
+      },
+    );
+
+    return CareTask.fromJson(response.data!);
+  }
+
   Future<List<UserAlert>> fetchAlerts() async {
     final response = await _apiClient.dio.get<Map<String, dynamic>>('/alerts');
     final items = response.data?['data'] as List<dynamic>? ?? [];
@@ -53,4 +76,10 @@ class DashboardService {
 
     return ProfileSummary.fromJson(response.data!);
   }
+}
+
+String _formatApiDate(DateTime value) {
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '${value.year}-$month-$day';
 }
