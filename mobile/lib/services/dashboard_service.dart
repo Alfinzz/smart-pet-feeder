@@ -31,33 +31,15 @@ class DashboardService {
     return HealthSummary.fromJson(response.data!);
   }
 
-  Future<CareTask> markCareTaskCompleted(int taskId) async {
+  Future<CareTask> markCareTaskCompleted(int taskId, {int? ageInMonths}) async {
+    final data = <String, dynamic>{'status': 'completed'};
+    if (ageInMonths != null) {
+      data['age_in_months'] = ageInMonths;
+    }
+
     final response = await _apiClient.dio.patch<Map<String, dynamic>>(
       '/health/tasks/$taskId/status',
-      data: {'status': 'completed'},
-    );
-
-    return CareTask.fromJson(response.data!);
-  }
-
-  Future<CareTask> createCareTask({
-    required String category,
-    required String title,
-    required String description,
-    required DateTime dueDate,
-    String status = 'pending',
-    String priority = 'normal',
-  }) async {
-    final response = await _apiClient.dio.post<Map<String, dynamic>>(
-      '/health/tasks',
-      data: {
-        'category': category,
-        'title': title,
-        'description': description,
-        'due_date': _formatApiDate(dueDate),
-        'status': status,
-        'priority': priority,
-      },
+      data: data,
     );
 
     return CareTask.fromJson(response.data!);
@@ -76,10 +58,4 @@ class DashboardService {
 
     return ProfileSummary.fromJson(response.data!);
   }
-}
-
-String _formatApiDate(DateTime value) {
-  final month = value.month.toString().padLeft(2, '0');
-  final day = value.day.toString().padLeft(2, '0');
-  return '${value.year}-$month-$day';
 }

@@ -61,56 +61,38 @@ class _HealthScreenState extends State<HealthScreen> {
     }
   }
 
-  Future<bool> _markTaskCompleted(CareTask task) async {
+  Future<void> _completeTask(CareTask task) async {
+    final summary = _summary;
+    if (summary != null) {
+      setState(() {
+        _summary = summary.copyWith(
+          upcomingTasks: summary.upcomingTasks
+              .where((item) => item.id != task.id)
+              .toList(),
+        );
+      });
+    }
+
     try {
-      await widget.dashboardService.markCareTaskCompleted(task.id);
-      await _createNextTaskIfNeeded(task);
-      if (!mounted) return true;
-      final summary = _summary;
-      if (summary != null) {
-        setState(() {
-          _summary = summary.copyWith(
-            upcomingTasks: summary.upcomingTasks
-                .where((item) => item.id != task.id)
-                .toList(),
-          );
-        });
-      }
+      await widget.dashboardService.markCareTaskCompleted(
+        task.id,
+        ageInMonths: summary?.pet.ageInMonths,
+      );
       await _loadHealth();
-      if (!mounted) return true;
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('${task.title} marked completed.')),
       );
-      return true;
     } catch (error) {
-      if (!mounted) return false;
+      await _loadHealth();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to update task: ${error.toString()}'),
           backgroundColor: Colors.red,
         ),
       );
-      return false;
     }
-  }
-
-  Future<void> _createNextTaskIfNeeded(CareTask task) async {
-    final category = _recurringCategoryForTask(task);
-    if (category == null) return;
-    final title = task.title.isEmpty
-        ? _defaultRecurringTitle(category)
-        : task.title;
-    final description = task.description.isEmpty ? title : task.description;
-    await widget.dashboardService.createCareTask(
-      category: category,
-      title: title,
-      description: description,
-      dueDate: _nextDueDateForCategory(
-        category,
-        _summary?.pet.ageInMonths ?? 0,
-      ),
-      priority: task.priority,
-    );
   }
 
   @override
@@ -154,7 +136,6 @@ class _HealthScreenState extends State<HealthScreen> {
 
     return Column(
       children: [
-        // Circular score
         SizedBox(
           width: 180,
           height: 180,
@@ -187,7 +168,6 @@ class _HealthScreenState extends State<HealthScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        // Excellent badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
@@ -347,6 +327,8 @@ class _HealthScreenState extends State<HealthScreen> {
           else
             ...tasks.map((task) {
               final style = _taskStyle(task.category, task.priority);
+              final canComplete =
+                  task.id > 0 && task.status.toLowerCase() == 'pending';
               final taskItem = _buildTaskItem(
                 icon: style.icon,
                 iconColor: style.iconColor,
@@ -360,12 +342,11 @@ class _HealthScreenState extends State<HealthScreen> {
               );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: task.id <= 0
-                    ? taskItem
-                    : Dismissible(
+                child: canComplete
+                    ? Dismissible(
                         key: ValueKey('care-task-${task.id}'),
                         direction: DismissDirection.endToStart,
-                        confirmDismiss: (_) => _markTaskCompleted(task),
+                        onDismissed: (_) => _completeTask(task),
                         background: Container(
                           alignment: Alignment.centerRight,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -379,7 +360,8 @@ class _HealthScreenState extends State<HealthScreen> {
                           ),
                         ),
                         child: taskItem,
-                      ),
+                      )
+                    : taskItem,
               );
             }),
         ],
@@ -510,34 +492,6 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 }
 
-String? _recurringCategoryForTask(CareTask task) {
-  final category = task.category.toLowerCase();
-  final title = task.title.toLowerCase();
-  if (category == 'vaccination' ||
-      category == 'vaccine' ||
-      title.contains('vaksin') ||
-      title.contains('vaccin')) {
-    return 'vaccination';
-  }
-  if (category == 'checkup' ||
-      title.contains('medical checkup') ||
-      title.contains('vet checkup')) {
-    return 'checkup';
-  }
-  return null;
-}
-
-DateTime _nextDueDateForCategory(String category, int ageInMonths) {
-  if (category == 'vaccination') {
-    return DateTime.now().add(Duration(days: ageInMonths < 4 ? 21 : 365));
-  }
-  return DateTime.now().add(const Duration(days: 180));
-}
-
-String _defaultRecurringTitle(String category) {
-  return category == 'vaccination' ? 'Vaksinasi' : 'Medical Checkup';
-}
-
 _TaskStyle _taskStyle(String category, String priority) {
   if (category == 'vaccination') {
     return const _TaskStyle(
@@ -655,7 +609,6 @@ class _HealthScorePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 10;
 
-    // Background arc
     final bgPaint = Paint()
       ..color = const Color(0xFFE2E8F0)
       ..style = PaintingStyle.stroke
@@ -670,7 +623,6 @@ class _HealthScorePainter extends CustomPainter {
       bgPaint,
     );
 
-    // Score arc
     final scorePaint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12

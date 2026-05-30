@@ -47,7 +47,9 @@ type careTaskRequest struct {
 }
 
 type careTaskStatusRequest struct {
-	Status string `json:"status" binding:"required"`
+	Status      string `json:"status" binding:"required"`
+	AgeInMonths *int   `json:"age_in_months" binding:"omitempty,gte=0"`
+	Age         *int   `json:"age" binding:"omitempty,gte=0"`
 }
 
 func (h *Handler) getDashboardOverview(c *gin.Context) {
@@ -295,7 +297,12 @@ func (h *Handler) updateCareTaskStatus(c *gin.Context) {
 		return
 	}
 
-	task, err := h.dashboard.UpdateCareTaskStatus(c.Request.Context(), ownerID, taskID, req.Status)
+	ageInMonths := req.AgeInMonths
+	if ageInMonths == nil {
+		ageInMonths = req.Age
+	}
+
+	task, err := h.dashboard.UpdateCareTaskStatus(c.Request.Context(), ownerID, taskID, req.Status, ageInMonths)
 	if err != nil {
 		respondUsecaseError(c, err)
 		return
@@ -382,6 +389,7 @@ func (h *Handler) petProfileResponse(c *gin.Context, pet domain.PetProfile) gin.
 		"species":                 pet.Species,
 		"breed":                   pet.Breed,
 		"age_years":               pet.AgeYears,
+		"age_in_months":           pet.AgeYears * 12,
 		"weight_kg":               pet.WeightKG,
 		"daily_feed_target_grams": pet.DailyFeedTargetGrams,
 		"health_score":            pet.HealthScore,

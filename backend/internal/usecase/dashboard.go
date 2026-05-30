@@ -324,7 +324,7 @@ func (u *DashboardUsecase) UpdateCareTask(ctx context.Context, ownerID, taskID i
 	return u.repo.UpdateCareTask(ctx, ownerID, taskID, input)
 }
 
-func (u *DashboardUsecase) UpdateCareTaskStatus(ctx context.Context, ownerID, taskID int64, status string) (domain.CareTask, error) {
+func (u *DashboardUsecase) UpdateCareTaskStatus(ctx context.Context, ownerID, taskID int64, status string, ageInMonths *int) (domain.CareTask, error) {
 	if taskID <= 0 {
 		return domain.CareTask{}, fmt.Errorf("%w: task_id is required", domain.ErrValidation)
 	}
@@ -332,7 +332,14 @@ func (u *DashboardUsecase) UpdateCareTaskStatus(ctx context.Context, ownerID, ta
 	if status != "pending" && status != "completed" {
 		return domain.CareTask{}, fmt.Errorf("%w: status must be pending or completed", domain.ErrValidation)
 	}
-	return u.repo.UpdateCareTaskStatus(ctx, ownerID, taskID, status)
+	task, err := u.repo.UpdateCareTaskStatus(ctx, ownerID, taskID, status)
+	if err != nil || status != "completed" {
+		return task, err
+	}
+	if err := u.createNextCareTask(ctx, ownerID, task, ageInMonths); err != nil {
+		return domain.CareTask{}, err
+	}
+	return task, nil
 }
 
 func (u *DashboardUsecase) DeleteCareTask(ctx context.Context, ownerID, taskID int64) error {
@@ -577,6 +584,73 @@ func statusOrDefault(value, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func (u *DashboardUsecase) createNextCareTask(ctx context.Context, ownerID int64, task domain.CareTask, ageInMonths *int) error {
+	category, ok := recurringCareTaskCategory(task)
+	if !ok {
+		return nil
+	}
+	age, err := u.resolvePetAgeInMonths(ctx, ownerID, ageInMonths)
+	if err != nil {
+		return err
+	}
+	input := nextCareTaskInput(task, category, age)
+	_, err = u.repo.CreateCareTask(ctx, task.PetID, input)
+	return err
+}
+
+func (u *DashboardUsecase) resolvePetAgeInMonths(ctx context.Context, ownerID int64, ageInMonths *int) (int, error) {
+	if ageInMonths != nil {
+		return *ageInMonths, nil
+	}
+	pet, err := u.repo.GetPetProfile(ctx, ownerID)
+	if err != nil {
+		return 0, err
+	}
+	return pet.AgeYears * 12, nil
+}
+
+func recurringCareTaskCategory(task domain.CareTask) (string, bool) {
+	category := strings.ToLower(strings.TrimSpace(task.Category))
+	title := strings.ToLower(strings.TrimSpace(task.Title))
+	switch {
+	case category == "vaccination", category == "vaccine", title == "vaksinasi", strings.Contains(title, "vaksin"), strings.Contains(title, "vaccin"):
+		return "vaccination", true
+	case category == "checkup", title == "medical checkup", strings.Contains(title, "medical checkup"), strings.Contains(title, "vet checkup"):
+		return "checkup", true
+	default:
+		return "", false
+	}
+}
+
+func nextCareTaskInput(task domain.CareTask, category string, ageInMonths int) domain.CareTaskInput {
+	days := 180
+	if category == "vaccination" {
+		days = 365
+		if ageInMonths < 4 {
+			days = 21
+		}
+	}
+	dueAt := currentDate().AddDate(0, 0, days)
+	title := statusOrDefault(task.Title, defaultRecurringCareTaskTitle(category))
+	description := statusOrDefault(task.Description, title)
+	return domain.CareTaskInput{
+		Category:    category,
+		Title:       title,
+		Description: description,
+		DueAt:       &dueAt,
+		Status:      "pending",
+		Priority:    statusOrDefault(task.Priority, "normal"),
+		SortOrder:   task.SortOrder,
+	}
+}
+
+func defaultRecurringCareTaskTitle(category string) string {
+	if category == "vaccination" {
+		return "Vaksinasi"
+	}
+	return "Medical Checkup"
 }
 
 func defaultCareTasks() []domain.CareTask {
