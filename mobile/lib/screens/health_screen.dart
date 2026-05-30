@@ -95,13 +95,20 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 
   Future<void> _createNextTaskIfNeeded(CareTask task) async {
-    final dueDate = _nextDueDateForTask(task, _summary?.pet.ageInMonths ?? 0);
-    if (dueDate == null) return;
+    final category = _recurringCategoryForTask(task);
+    if (category == null) return;
+    final title = task.title.isEmpty
+        ? _defaultRecurringTitle(category)
+        : task.title;
+    final description = task.description.isEmpty ? title : task.description;
     await widget.dashboardService.createCareTask(
-      category: task.category,
-      title: task.title,
-      description: task.description.isEmpty ? task.title : task.description,
-      dueDate: dueDate,
+      category: category,
+      title: title,
+      description: description,
+      dueDate: _nextDueDateForCategory(
+        category,
+        _summary?.pet.ageInMonths ?? 0,
+      ),
       priority: task.priority,
     );
   }
@@ -503,21 +510,32 @@ class _HealthScreenState extends State<HealthScreen> {
   }
 }
 
-DateTime? _nextDueDateForTask(CareTask task, int ageInMonths) {
+String? _recurringCategoryForTask(CareTask task) {
   final category = task.category.toLowerCase();
   final title = task.title.toLowerCase();
   if (category == 'vaccination' ||
       category == 'vaccine' ||
       title.contains('vaksin') ||
       title.contains('vaccin')) {
-    return DateTime.now().add(Duration(days: ageInMonths < 4 ? 21 : 365));
+    return 'vaccination';
   }
   if (category == 'checkup' ||
       title.contains('medical checkup') ||
       title.contains('vet checkup')) {
-    return DateTime.now().add(const Duration(days: 180));
+    return 'checkup';
   }
   return null;
+}
+
+DateTime _nextDueDateForCategory(String category, int ageInMonths) {
+  if (category == 'vaccination') {
+    return DateTime.now().add(Duration(days: ageInMonths < 4 ? 21 : 365));
+  }
+  return DateTime.now().add(const Duration(days: 180));
+}
+
+String _defaultRecurringTitle(String category) {
+  return category == 'vaccination' ? 'Vaksinasi' : 'Medical Checkup';
 }
 
 _TaskStyle _taskStyle(String category, String priority) {
