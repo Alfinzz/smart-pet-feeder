@@ -111,13 +111,20 @@ func (u *DashboardUsecase) GetHealthSummary(ctx context.Context, ownerID int64) 
 
 	tasks := []domain.CareTask(nil)
 	if pet.ID > 0 {
-		tasks, err = u.repo.ListUpcomingTasks(ctx, pet.ID, 10)
-		if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		tasks, err = u.listOrCreateUpcomingTasks(ctx, pet.ID, 10)
+		if err != nil {
 			return domain.HealthSummary{}, err
 		}
 	}
-	if len(tasks) == 0 {
-		tasks = defaultCareTasks()
+	if len(tasks) == 0 && pet.ID == 0 {
+		pet, err = u.ensurePetForOwner(ctx, ownerID)
+		if err != nil {
+			return domain.HealthSummary{}, err
+		}
+		tasks, err = u.listOrCreateUpcomingTasks(ctx, pet.ID, 10)
+		if err != nil {
+			return domain.HealthSummary{}, err
+		}
 	}
 
 	vitals := domain.HealthVitals{
@@ -294,11 +301,7 @@ func (u *DashboardUsecase) ListCareTasks(ctx context.Context, ownerID int64, lim
 	if limit > 100 {
 		limit = 100
 	}
-	tasks, err := u.repo.ListUpcomingTasks(ctx, pet.ID, limit)
-	if errors.Is(err, domain.ErrNotFound) {
-		return []domain.CareTask{}, nil
-	}
-	return tasks, err
+	return u.listOrCreateUpcomingTasks(ctx, pet.ID, limit)
 }
 
 func (u *DashboardUsecase) CreateCareTask(ctx context.Context, ownerID int64, input domain.CareTaskInput) (domain.CareTask, error) {
@@ -586,6 +589,33 @@ func statusOrDefault(value, fallback string) string {
 	return value
 }
 
+func (u *DashboardUsecase) listOrCreateUpcomingTasks(ctx context.Context, petID int64, limit int) ([]domain.CareTask, error) {
+	tasks, err := u.repo.ListUpcomingTasks(ctx, petID, limit)
+	if err == nil {
+		return tasks, nil
+	}
+	if !errors.Is(err, domain.ErrNotFound) {
+		return nil, err
+	}
+	if err := u.createDefaultCareTasks(ctx, petID); err != nil {
+		return nil, err
+	}
+	tasks, err = u.repo.ListUpcomingTasks(ctx, petID, limit)
+	if errors.Is(err, domain.ErrNotFound) {
+		return []domain.CareTask{}, nil
+	}
+	return tasks, err
+}
+
+func (u *DashboardUsecase) createDefaultCareTasks(ctx context.Context, petID int64) error {
+	for _, input := range defaultCareTaskInputs() {
+		if _, err := u.repo.CreateCareTask(ctx, petID, input); err != nil && !errors.Is(err, domain.ErrConflict) {
+			return err
+		}
+	}
+	return nil
+}
+
 func (u *DashboardUsecase) createNextCareTask(ctx context.Context, ownerID int64, task domain.CareTask, ageInMonths *int) error {
 	category, ok := recurringCareTaskCategory(task)
 	if !ok {
@@ -653,26 +683,24 @@ func defaultRecurringCareTaskTitle(category string) string {
 	return "Medical Checkup"
 }
 
-func defaultCareTasks() []domain.CareTask {
-	return []domain.CareTask{
+func defaultCareTaskInputs() []domain.CareTaskInput {
+	vaccinationDueAt := currentDate().AddDate(0, 0, 5)
+	checkupDueAt := currentDate().AddDate(0, 0, 30)
+	return []domain.CareTaskInput{
 		{
-			ID:          -1,
 			Category:    "vaccination",
 			Title:       "Vaccination",
-			Subtitle:    "Annual Rabies Booster",
 			Description: "Annual Rabies Booster",
-			DueLabel:    "Due in 5 days",
+			DueAt:       &vaccinationDueAt,
 			Status:      "pending",
 			Priority:    "high",
 			SortOrder:   1,
 		},
 		{
-			ID:          -2,
 			Category:    "checkup",
 			Title:       "Vet Checkup",
-			Subtitle:    "General Wellness Exam",
 			Description: "General Wellness Exam",
-			DueLabel:    "Oct 24",
+			DueAt:       &checkupDueAt,
 			Status:      "pending",
 			Priority:    "normal",
 			SortOrder:   2,

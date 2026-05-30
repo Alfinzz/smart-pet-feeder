@@ -328,7 +328,7 @@ class _HealthScreenState extends State<HealthScreen> {
             ...tasks.map((task) {
               final style = _taskStyle(task.category, task.priority);
               final canComplete =
-                  task.id > 0 && task.status.toLowerCase() == 'pending';
+                  task.id > 0 && task.status.toLowerCase() != 'completed';
               final taskItem = _buildTaskItem(
                 icon: style.icon,
                 iconColor: style.iconColor,
